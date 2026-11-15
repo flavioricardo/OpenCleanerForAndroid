@@ -1,0 +1,59 @@
+# Check "ci" of the PR -> review -> merge flow. There is no branch protection,
+# so check that this is green on the last commit before merging.
+# Based on flavioricardo/claude-config templates/github/ci.yml (STATE.md step),
+# with an Android build instead of npm.
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # STATE.md only holds live facts (base rule). A history section is an
+      # error; size is a warning.
+      - name: STATE.md
+        run: |
+          [ -f STATE.md ] || exit 0
+          hist='^#+[[:space:]]*[^[:alnum:]]*(resolvid|feito|hist.{1,2}rico|done|resolved)|^#+.*\b(resolvidas|resolvidos|resolved)\b|^(resolvidas|resolvidos|feito|done)\b[^:]*:[[:space:]]*$'
+          if grep -niE "$hist" STATE.md; then
+            echo "::error file=STATE.md::Seção de histórico no STATE.md — pendência fechada se apaga, histórico mora no git log."
+            exit 1
+          fi
+          n=$(wc -l < STATE.md)
+          [ "$n" -le 150 ] || echo "::warning file=STATE.md::STATE.md com $n linhas (limite 150) — enxugar."
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      # No Gradle wrapper in the repo yet: pin the Gradle version here.
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
+
+      - name: Test, lint and build
+        run: gradle --no-daemon testDebugUnitTest lintDebug assembleRelease
+
+      # The app must never be able to reach the network (no telemetry).
+      - name: No INTERNET permission in the APK
+        run: |
+          aapt2="$(ls -d "$ANDROID_HOME"/build-tools/*/ | sort -V | tail -1)aapt2"
+          "$aapt2" dump permissions app/build/outputs/apk/release/app-release.apk | tee perms.txt
+          if grep -q 'android.permission.INTERNET' perms.txt; then
+            echo "::error::INTERNET permission found in the APK"; exit 1
+          fi
+          ls -l app/build/outputs/apk/release/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: OpenCleaner-apk
+          path: app/build/outputs/apk/release/app-release.apk
