@@ -15,6 +15,8 @@ data class AppInfo(
     val lastUsed: Long,
     val installed: Long,
     val system: Boolean,
+    /** Works without being opened: no launcher icon, or it is the current keyboard or home app. */
+    val alwaysOn: Boolean = false,
 )
 
 sealed interface Action {

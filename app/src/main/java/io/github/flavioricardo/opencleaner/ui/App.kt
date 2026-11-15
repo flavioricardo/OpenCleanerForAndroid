@@ -86,12 +86,13 @@ fun App(resumeTick: Int) {
     val scope = rememberCoroutineScope()
     val filesOk = remember(resumeTick) { hasAllFiles() }
     val usageOk = remember(resumeTick) { hasUsage(ctx) }
-    val usage = remember(resumeTick) { storageUsage() }
+    var screen by remember { mutableStateOf<Screen>(Screen.Home) }
+    // Re-read after resolving too: deleting files alone triggers no resume.
+    val usage = remember(resumeTick, screen) { storageUsage() }
     var skipWelcome by rememberSaveable { mutableStateOf(false) }
     var items by remember { mutableStateOf<List<Item>?>(null) }
     var busy by remember { mutableStateOf<Int?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
-    var screen by remember { mutableStateOf<Screen>(Screen.Home) }
     val queue = remember { ArrayDeque<Intent>() }
     var usedBefore by remember { mutableLongStateOf(0L) }
 
@@ -107,6 +108,8 @@ fun App(resumeTick: Int) {
             try {
                 launcher.launch(intent)
             } catch (e: ActivityNotFoundException) {
+                next()
+            } catch (e: SecurityException) {
                 next()
             }
         }

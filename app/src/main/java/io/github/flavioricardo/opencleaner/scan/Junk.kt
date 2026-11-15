@@ -27,8 +27,12 @@ fun downloadApks(storage: File): List<File> =
 fun thumbnailFiles(storage: File): List<File> =
     File(storage, "DCIM/.thumbnails").walkTopDown().filter { it.isFile }.toList()
 
-fun largeVideos(files: List<File>, minBytes: Long = 100L * 1024 * 1024): List<File> =
-    files.filter { it.extension.lowercase() in VIDEO_EXTENSIONS && it.length() > minBytes }
+fun largeVideos(
+    files: List<File>,
+    minBytes: Long = 100L * 1024 * 1024,
+    sizeOf: (File) -> Long = { it.length() },
+): List<File> =
+    files.filter { it.extension.lowercase() in VIDEO_EXTENSIONS && sizeOf(it) > minBytes }
 
 /**
  * Folders with no file anywhere in their subtree. Returns only the topmost one of each empty

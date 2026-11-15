@@ -14,8 +14,12 @@ private const val HEAD_BYTES = 64L * 1024
  * Only files that share a size are ever read, and the full hash only runs when the first
  * 64 KB already match.
  */
-fun findDuplicates(files: List<File>, keepScore: (File) -> Long): List<DuplicateGroup> =
-    files.groupBy { it.length() }
+fun findDuplicates(
+    files: List<File>,
+    sizeOf: (File) -> Long = { it.length() },
+    keepScore: (File) -> Long,
+): List<DuplicateGroup> =
+    files.groupBy(sizeOf)
         .filter { (size, same) -> size > 0 && same.size > 1 }
         .flatMap { (size, same) ->
             same.groupByNotNull { sha256(it, HEAD_BYTES) }.values

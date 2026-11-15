@@ -32,8 +32,23 @@ fun analyze(storage: File?, apps: List<AppInfo>?, now: Long): List<Finding> {
         val claimed = (backups + statuses + apks + thumbnails).toSet()
 
         val all = listFilesUnder(storage)
+        // One stat per file: every call goes through FUSE on a real phone.
+        val sizes = all.associateWith { it.length() }
+        val sizeOf = { f: File -> sizes[f] ?: f.length() }
+        fun files(kind: Kind, list: List<File>, checked: Boolean) =
+            Finding(kind, null, list.sumOf(sizeOf), Action.DeleteFiles(list), checked)
+
+        // Duplicates only in user folders and WhatsApp media: never in WhatsApp's Databases/Backups
+        // (the current backup must stay), other apps' Android/ folders or hidden folders.
+        val waMedia = wa.map { File(it, "Media") }
+        fun duplicateCandidate(f: File): Boolean {
+            if (waMedia.any { f.path.startsWith(it.path + File.separator) }) return true
+            val rel = f.relativeTo(storage).invariantSeparatorsPath
+            return !rel.startsWith("Android/") && rel.split('/').none { it.startsWith(".") }
+        }
         val removable = findDuplicates(
-            all.filter { it !in claimed && it.length() >= MIN_DUPLICATE_BYTES },
+            all.filter { it !in claimed && sizeOf(it) >= MIN_DUPLICATE_BYTES && duplicateCandidate(it) },
+            sizeOf,
         ) { if (underWhatsApp(it)) 1 else 0 }.flatMap { it.remove }
         val removableSet = removable.toSet()
 
@@ -43,7 +58,7 @@ fun analyze(storage: File?, apps: List<AppInfo>?, now: Long): List<Finding> {
         out += files(Kind.APKS, apks, true)
         out += files(Kind.THUMBNAILS, thumbnails, true)
         out += files(Kind.DUPLICATES, removable.filterNot(::underWhatsApp), true)
-        out += files(Kind.LARGE_VIDEOS, largeVideos(all.filter { it !in claimed && it !in removableSet }), false)
+        out += files(Kind.LARGE_VIDEOS, largeVideos(all.filter { it !in claimed && it !in removableSet }, sizeOf = sizeOf), false)
         val empty = emptyDirs(storage)
         if (empty.isNotEmpty()) out += Finding(Kind.EMPTY_DIRS, null, 0, Action.DeleteFiles(empty), true)
     }
@@ -51,10 +66,14 @@ fun analyze(storage: File?, apps: List<AppInfo>?, now: Long): List<Finding> {
     if (apps == null) {
         out += Finding(Kind.NEEDS_USAGE_ACCESS, null, 0, null, false)
     } else {
-        out += Finding(Kind.CACHE, null, apps.sumOf { it.cacheBytes }, Action.ClearAllCache, true)
+        // The system cache dialog only opens for apps with all-files access.
+        if (storage != null) out += Finding(Kind.CACHE, null, apps.sumOf { it.cacheBytes }, Action.ClearAllCache, true)
 
         val unused = apps
-            .filter { !it.system && it.pkg != OWN_PACKAGE && now - maxOf(it.lastUsed, it.installed) > 30 * DAY }
+            .filter {
+                !it.system && !it.alwaysOn && it.pkg != OWN_PACKAGE &&
+                    now - maxOf(it.lastUsed, it.installed) > 30 * DAY
+            }
             .sortedByDescending { it.appBytes + it.dataBytes }
         unused.forEach {
             out += Finding(Kind.UNUSED_APP, it.label, it.appBytes + it.dataBytes, Action.Uninstall(it.pkg), false)
@@ -73,6 +92,3 @@ fun analyze(storage: File?, apps: List<AppInfo>?, now: Long): List<Finding> {
 
     return out.filter { it.bytes > 0 || it.kind in ALWAYS_SHOWN }
 }
-
-private fun files(kind: Kind, list: List<File>, checked: Boolean) =
-    Finding(kind, null, list.sumOf { it.length() }, Action.DeleteFiles(list), checked)

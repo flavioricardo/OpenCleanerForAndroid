@@ -48,6 +48,28 @@ class AnalyzerTest {
         val result = analyze(null, listOf(app("com.x")), now)
         assertTrue(result.any { it.kind == Kind.NEEDS_FILES_ACCESS })
         assertTrue(result.none { it.action is Action.DeleteFiles })
+        assertNull(result.of(Kind.CACHE)) // the system cache dialog needs all-files access
+    }
+
+    @Test fun currentBackup_notDeletedAsDuplicate() {
+        tmp.root.put("Download/msgstore.db.crypt14", bytes(200 * 1024))
+        val current = tmp.root.put("$wa/Databases/msgstore.db.crypt14", bytes(200 * 1024))
+        val deleted = analyze(tmp.root, null, now).flatMap { (it.action as? Action.DeleteFiles)?.files.orEmpty() }
+        assertFalse(current in deleted)
+    }
+
+    @Test fun otherAppsAndHiddenFolders_noDuplicates() {
+        tmp.root.put("Android/media/com.game/a.bin", bytes(200 * 1024))
+        tmp.root.put("Android/media/com.game/b.bin", bytes(200 * 1024))
+        tmp.root.put(".hidden/a.bin", bytes(200 * 1024, seed = 1))
+        tmp.root.put(".hidden/b.bin", bytes(200 * 1024, seed = 1))
+        assertNull(analyze(tmp.root, null, now).of(Kind.DUPLICATES))
+    }
+
+    @Test fun userFolders_duplicatesFound() {
+        tmp.root.put("Download/a.bin", bytes(200 * 1024))
+        tmp.root.put("Documents/a.bin", bytes(200 * 1024))
+        assertEquals(1, analyze(tmp.root, null, now).of(Kind.DUPLICATES)!!.files().size)
     }
 
     @Test fun unusedApp_rules() {
@@ -58,6 +80,7 @@ class AnalyzerTest {
             app("com.never", lastUsed = 0),
             app("com.justinstalled", lastUsed = 0, installed = now - day),
             app(OWN_PACKAGE, lastUsed = 0),
+            app("com.keyboard", lastUsed = 0).copy(alwaysOn = true),
         )
         val unused = analyze(null, apps, now).filter { it.kind == Kind.UNUSED_APP }.map { it.label }.toSet()
         assertEquals(setOf("com.old", "com.never"), unused)
