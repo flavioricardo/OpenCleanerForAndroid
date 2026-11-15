@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name" translatable="false">OpenCleaner</string>
+
+    <string name="welcome_title">Before the first analysis</string>
+    <string name="welcome_files">All files access: to find duplicates, WhatsApp leftovers and junk, and delete only what you confirm.</string>
+    <string name="welcome_usage">Usage access: to see the size and cache of each app, and when you last opened it.</string>
+    <string name="welcome_privacy">OpenCleaner has no internet permission: nothing leaves your phone.</string>
+    <string name="continue_anyway">Continue anyway</string>
+    <string name="grant">Grant</string>
+    <string name="granted">Granted</string>
+
+    <string name="used_of">%1$s of %2$s used</string>
+    <string name="analyze">Analyze</string>
+    <string name="analyze_again">Analyze again</string>
+    <string name="analyzing">Analyzing. This only reads, nothing is deleted.</string>
+    <string name="resolving">Cleaning…</string>
+    <string name="can_free">You can free up %1$s</string>
+    <string name="nothing">Nothing to clean right now.</string>
+    <string name="resolve">Resolve: %1$s</string>
+    <string name="only_you">Only you can do</string>
+    <string name="open">Open</string>
+    <string name="back">Back</string>
+    <string name="freed">Freed: %1$s</string>
+    <string name="error">Analysis failed: %1$s</string>
+
+    <string name="k_wa_duplicates">WhatsApp: duplicate media</string>
+    <string name="k_wa_backups">WhatsApp: old local backups</string>
+    <string name="k_wa_statuses">WhatsApp: statuses already seen</string>
+    <string name="k_cache">Cache of all apps</string>
+    <string name="k_apks">Installers (APK) in Download</string>
+    <string name="k_thumbnails">Gallery thumbnails</string>
+    <string name="k_empty_dirs">Empty folders</string>
+    <string name="k_duplicates">Duplicate files</string>
+    <string name="k_large_videos">Videos over 100 MB</string>
+    <string name="k_unused_app">%1$s (not opened in 30+ days)</string>
+    <string name="k_manual_app">%1$s: delete its downloads or data</string>
+    <string name="k_needs_files">Needs all files access</string>
+    <string name="k_needs_usage">Needs usage access to see apps and cache</string>
+
+    <string name="wa_duplicates_warning">The file stays on your phone, but shows as unavailable in that chat.</string>
+    <string name="hint_backups">The current backup stays.</string>
+    <string name="hint_cache">Android asks you to confirm.</string>
+    <string name="hint_thumbnails">The gallery recreates them when needed.</string>
+    <string name="hint_uninstall">Android asks you to confirm each app.</string>
+
+    <plurals name="folders">
+        <item quantity="one">%d folder</item>
+        <item quantity="other">%d folders</item>
+    </plurals>
+</resources>
