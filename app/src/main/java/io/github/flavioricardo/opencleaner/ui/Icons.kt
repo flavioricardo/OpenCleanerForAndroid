@@ -12,10 +12,7 @@ import androidx.compose.ui.unit.dp
  * Lucide icons (lucide-static 1.58.0), the same set as OpenCleaner for Windows, as SVG path data
  * (circles and rects converted to paths).
  *
- * ISC License. Copyright (c) 2026 Lucide Icons and Contributors. Permission to use, copy, modify,
- * and/or distribute this software for any purpose with or without fee is hereby granted, provided
- * that the above copyright notice and this permission notice appear in all copies. THE SOFTWARE
- * IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE.
+ * Lucide is ISC licensed (some icons derive from Feather, MIT): full text in LICENSES/lucide.txt.
  */
 internal object Lucide {
     val Archive by lazy {

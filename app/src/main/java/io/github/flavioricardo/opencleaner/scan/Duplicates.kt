@@ -12,7 +12,8 @@ private const val HEAD_BYTES = 64L * 1024
  * Groups files with identical content (byte for byte). In each group the file with the
  * lowest keepScore stays; ties keep the oldest (lastModified). Unreadable files are skipped.
  * Only files that share a size are ever read, and the full hash only runs when the first
- * 64 KB already match. onRead(done, total) follows the files that share a size.
+ * 64 KB already match. onRead(done, total) follows every read; total grows when a group
+ * needs the full hash.
  */
 fun findDuplicates(
     files: List<File>,
@@ -21,7 +22,7 @@ fun findDuplicates(
     keepScore: (File) -> Long,
 ): List<DuplicateGroup> {
     val bySize = files.groupBy(sizeOf).filter { (size, same) -> size > 0 && same.size > 1 }
-    val total = bySize.values.sumOf { it.size }
+    var total = bySize.values.sumOf { it.size }
     var done = 0
     onRead(0, total)
     return bySize
@@ -30,7 +31,10 @@ fun findDuplicates(
                 .filter { it.size > 1 }
                 .flatMap { candidates ->
                     if (size <= HEAD_BYTES) listOf(candidates)
-                    else candidates.groupByNotNull { sha256(it, Long.MAX_VALUE) }.values
+                    else {
+                        total += candidates.size
+                        candidates.groupByNotNull { f -> sha256(f, Long.MAX_VALUE).also { onRead(++done, total) } }.values
+                    }
                 }
                 .filter { it.size > 1 }
                 .map { copies ->

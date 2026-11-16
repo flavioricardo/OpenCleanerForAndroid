@@ -39,6 +39,8 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -62,6 +64,8 @@ import io.github.flavioricardo.opencleaner.scan.Kind
 import io.github.flavioricardo.opencleaner.system.allFilesIntent
 import io.github.flavioricardo.opencleaner.system.appSettingsIntent
 import io.github.flavioricardo.opencleaner.system.usageIntent
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 private const val DAY = 24L * 60 * 60 * 1000
 
@@ -428,7 +432,7 @@ private fun AreaCard(
             style = MaterialTheme.typography.headlineSmall,
             color = if (attention) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.onSurface,
         )
-        Muted(subtitle, Modifier.height(36.dp))
+        Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, minLines = 2)
     }
 }
 
@@ -640,10 +644,12 @@ internal fun DetailPage(item: Item, onBack: () -> Unit) {
                 }
             }
             items(item.files, key = { it.path }) { file ->
-                val bytes = remember(file) { file.length() }
+                // Each stat goes through FUSE: keep it off the main thread.
+                val bytes by produceState(0L, file) { value = withContext(Dispatchers.IO) { file.length() } }
                 val keep = file !in item.excluded
                 fun toggle(on: Boolean) {
-                    if (on) item.excluded.remove(file) else item.excluded[file] = bytes
+                    // A tap can come before the size loads: then stat it now, once.
+                    if (on) item.excluded.remove(file) else item.excluded[file] = if (bytes > 0) bytes else file.length()
                 }
                 Row(
                     Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(MaterialTheme.colorScheme.surface)

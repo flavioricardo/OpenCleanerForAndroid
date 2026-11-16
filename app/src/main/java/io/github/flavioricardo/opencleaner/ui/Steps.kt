@@ -30,6 +30,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import io.github.flavioricardo.opencleaner.R
 import io.github.flavioricardo.opencleaner.scan.Action
+import io.github.flavioricardo.opencleaner.scan.Kind
 import io.github.flavioricardo.opencleaner.scan.Phase
 import io.github.flavioricardo.opencleaner.system.appSettingsIntent
 
@@ -132,7 +133,11 @@ private fun stepDetail(step: Step): String? {
         Status.PENDING -> if (item.isSystemDialog) stringResource(R.string.step_android_asks) else countText(item).ifEmpty { null }
         Status.RUNNING -> if (item.isSystemDialog) stringResource(R.string.step_waiting_confirm)
         else stringResource(R.string.step_deleting, step.done, step.total)
-        Status.DONE -> if (item.isSystemDialog) null else pluralStringResource(R.plurals.files, step.total, step.total)
+        Status.DONE -> when {
+            item.isSystemDialog -> null
+            item.f.kind == Kind.EMPTY_DIRS -> pluralStringResource(R.plurals.folders, step.total, step.total)
+            else -> pluralStringResource(R.plurals.files, step.total, step.total)
+        }
         Status.WARN -> stringResource(
             if (item.f.action is Action.Uninstall) R.string.step_not_uninstalled else R.string.step_cache_not_freed,
         )

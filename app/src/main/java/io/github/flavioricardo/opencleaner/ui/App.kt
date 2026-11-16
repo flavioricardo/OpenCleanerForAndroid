@@ -138,13 +138,15 @@ fun App(resumeTick: Int) {
         return true
     }
 
+    // steps is set before launching, so a second tap finds a run in progress and does nothing.
     fun runAnalysis() {
+        if (steps != null) return
+        val list = Phase.entries.map(::Step)
+        steps = list
+        cleaning = false
         scope.launch {
             error = null
             report = null
-            cleaning = false
-            val list = Phase.entries.map(::Step)
-            steps = list
             val start = SystemClock.elapsedRealtime()
             fun at(phase: Phase, done: Int, total: Int) {
                 list.forEach {
@@ -179,12 +181,12 @@ fun App(resumeTick: Int) {
 
     fun clean() {
         val selected = analysis?.checkable.orEmpty().filter { it.selected }
-        if (selected.isEmpty()) return
+        if (selected.isEmpty() || steps != null) return
+        // Files first, then the system dialogs, so the long part runs without waiting on the user.
+        val list = (selected.filterNot { it.isSystemDialog } + selected.filter { it.isSystemDialog }).map(::Step)
+        steps = list
+        cleaning = true
         scope.launch {
-            cleaning = true
-            // Files first, then the system dialogs, so the long part runs without waiting on the user.
-            val list = (selected.filterNot { it.isSystemDialog } + selected.filter { it.isSystemDialog }).map(::Step)
-            steps = list
             val start = SystemClock.elapsedRealtime()
             val before = storageUsage().first
             val deleted = mutableListOf<File>()
@@ -214,7 +216,13 @@ fun App(resumeTick: Int) {
                     }
                     is Action.Uninstall -> {
                         awaitDialog(uninstallIntent(action.pkg))
-                        val gone = !isInstalled(ctx, action.pkg)
+                        // The package manager may finish removing it a moment after the dialog closes.
+                        var gone = false
+                        for (i in 1..6) {
+                            gone = !isInstalled(ctx, action.pkg)
+                            if (gone) break
+                            delay(500)
+                        }
                         step.bytes = if (gone) item.f.bytes else 0L
                         step.status = if (gone) Status.DONE else Status.WARN
                     }
@@ -291,7 +299,9 @@ fun App(resumeTick: Int) {
                     BackHandler { detail = null }
                     DetailPage(detailItem) { detail = null }
                 }
-                else -> when (tab) {
+                else -> {
+                    BackHandler(enabled = tab != Tab.HEALTH) { tab = Tab.HEALTH }
+                    when (tab) {
                     Tab.HEALTH -> HealthPage(
                         usage = usage,
                         analysis = current,
@@ -304,6 +314,7 @@ fun App(resumeTick: Int) {
                     )
                     Tab.CLEAN -> CleanPage(current, onAnalyze = ::runAnalysis, onOpen = { detail = it })
                     Tab.APPS -> AppsPage(current, onAnalyze = ::runAnalysis)
+                    }
                 }
             }
         }

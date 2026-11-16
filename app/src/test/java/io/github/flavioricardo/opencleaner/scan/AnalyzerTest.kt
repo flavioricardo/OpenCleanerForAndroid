@@ -138,8 +138,9 @@ class AnalyzerTest {
 
         val phases = reports.map { it.first }.toSet()
         assertTrue(phases.containsAll(listOf(Phase.FILES, Phase.WHATSAPP, Phase.DUPLICATES)))
+        // 2 head reads plus 2 full reads (the files are over 64 KB).
         val last = reports.last { it.first == Phase.DUPLICATES }
-        assertEquals(2, last.second)
-        assertEquals(2, last.third)
+        assertEquals(4, last.second)
+        assertEquals(4, last.third)
     }
 }
