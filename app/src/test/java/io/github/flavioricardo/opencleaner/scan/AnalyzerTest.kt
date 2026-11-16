@@ -158,4 +158,37 @@ class AnalyzerTest {
         assertFalse(perApp.single().checked)
         assertEquals(Action.OpenAppSettings("com.big"), perApp.single().action)
     }
+
+    @Test fun protectedFolders_neverDeleted() {
+        val keep = File(tmp.root, "Pictures/Keep")
+        val shot = tmp.root.put("Pictures/Keep/a.jpg", bytes(200 * 1024))
+        val copy = tmp.root.put("DCIM/a.jpg", bytes(200 * 1024), modified = 1L) // older: would be kept
+        val apk = tmp.root.put("Pictures/Keep/app.apk", "apk")
+        tmp.root.sized("Pictures/Keep/big.mp4", 200L * 1024 * 1024)
+        File(tmp.root, "Pictures/Keep/empty").mkdirs()
+        File(tmp.root, "Stuff/Keep2").mkdirs() // empty, protected, inside an otherwise empty folder
+
+        val options = ScanOptions(protectedDirs = listOf(keep, File(tmp.root, "Stuff/Keep2")))
+        val deleted = analyze(tmp.root, null, now, options).flatMap { (it.action as? Action.DeleteFiles)?.files.orEmpty() }
+
+        assertTrue(copy in deleted) // the protected copy is the one that stays
+        assertFalse(deleted.any { it.path.startsWith(keep.path) })
+        assertFalse(apk in deleted)
+        assertFalse(File(tmp.root, "Stuff") in deleted) // deleting it would delete Keep2
+        assertFalse(deleted.any { it.path.contains("Keep2") })
+        assertTrue(shot.exists())
+    }
+
+    @Test fun options_thresholds() {
+        tmp.root.sized("Movies/mid.mp4", 150L * 1024 * 1024)
+        val apps = listOf(app("com.sixty", lastUsed = now - 60 * day))
+
+        val defaults = analyze(tmp.root, apps, now)
+        assertTrue(defaults.any { it.kind == Kind.LARGE_VIDEOS })
+        assertTrue(defaults.any { it.kind == Kind.UNUSED_APP })
+
+        val strict = analyze(tmp.root, apps, now, ScanOptions(minVideoBytes = 200L * 1024 * 1024, unusedDays = 90))
+        assertFalse(strict.any { it.kind == Kind.LARGE_VIDEOS })
+        assertFalse(strict.any { it.kind == Kind.UNUSED_APP })
+    }
 }

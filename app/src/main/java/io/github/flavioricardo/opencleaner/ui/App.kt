@@ -13,6 +13,8 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -20,7 +22,10 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
@@ -33,6 +38,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import io.github.flavioricardo.opencleaner.R
 import io.github.flavioricardo.opencleaner.scan.Action
@@ -40,6 +46,7 @@ import io.github.flavioricardo.opencleaner.scan.AppInfo
 import io.github.flavioricardo.opencleaner.scan.Finding
 import io.github.flavioricardo.opencleaner.scan.Kind
 import io.github.flavioricardo.opencleaner.scan.Phase
+import io.github.flavioricardo.opencleaner.scan.ScanOptions
 import io.github.flavioricardo.opencleaner.scan.analyze
 import io.github.flavioricardo.opencleaner.scan.deleteFiles
 import io.github.flavioricardo.opencleaner.system.allFilesIntent
@@ -79,7 +86,11 @@ internal enum class Tab(val label: Int, val icon: ImageVector) {
     HEALTH(R.string.tab_health, Lucide.HeartPulse),
     CLEAN(R.string.tab_clean, Lucide.BrushCleaning),
     APPS(R.string.tab_apps, Lucide.LayoutGrid),
+    OPTIONS(R.string.tab_options, Lucide.Settings),
 }
+
+/** The options the shown analysis ran with, for labels like "Videos over 100 MB". */
+internal val LocalScanOptions = staticCompositionLocalOf { ScanOptions() }
 
 internal enum class Status { PENDING, RUNNING, DONE, WARN, SKIPPED }
 
@@ -99,7 +110,7 @@ internal val SYSTEM_KINDS = listOf(Kind.CACHE)
 internal val FILE_KINDS = listOf(Kind.APKS, Kind.THUMBNAILS, Kind.DUPLICATES, Kind.LARGE_VIDEOS, Kind.EMPTY_DIRS)
 
 /** Everything the pages read about the last analysis. */
-internal class Analysis(val items: List<Item>, val apps: Map<String, AppInfo>, val millis: Long) {
+internal class Analysis(val items: List<Item>, val apps: Map<String, AppInfo>, val millis: Long, val options: ScanOptions) {
     fun of(kinds: List<Kind>) = items.filter { it.f.kind in kinds }
     val checkable get() = items.filter { it.checkable }
     val selectedBytes get() = checkable.filter { it.selected }.sumOf { it.bytes }
@@ -123,6 +134,8 @@ fun App(resumeTick: Int) {
     var error by remember { mutableStateOf<String?>(null) }
     var usageTick by remember { mutableIntStateOf(0) }
     var analysisJob by remember { mutableStateOf<Job?>(null) }
+    val prefs = remember { Prefs(ctx.applicationContext) }
+    var confirming by remember { mutableStateOf(false) }
     var stopRequested by remember { mutableStateOf(false) }
     val usage = remember(resumeTick, usageTick) { storageUsage() }
 
@@ -151,6 +164,7 @@ fun App(resumeTick: Int) {
         val list = Phase.entries.map(::Step)
         steps = list
         cleaning = false
+        val options = prefs.scanOptions()
         analysisJob = scope.launch {
             error = null
             report = null
@@ -173,13 +187,18 @@ fun App(resumeTick: Int) {
                 runCatching {
                     val apps = loadApps(ctx) { done, total -> at(Phase.APPS, done, total) }
                     val storage = if (hasAllFiles()) Environment.getExternalStorageDirectory() else null
-                    val findings = analyze(storage, apps, System.currentTimeMillis(), ::at)
+                    val findings = analyze(storage, apps, System.currentTimeMillis(), options, ::at)
                     list.forEach {
                         val needsFiles = it.key != Phase.APPS && storage == null
                         val needsUsage = it.key == Phase.APPS && apps == null
                         it.status = if (needsFiles || needsUsage) Status.WARN else Status.DONE
                     }
-                    Analysis(findings.map(::Item), apps.orEmpty().associateBy { it.pkg }, SystemClock.elapsedRealtime() - start)
+                    val items = findings.map(::Item).onEach { item ->
+                        if (item.checkable && item.f.kind != Kind.UNUSED_APP) {
+                            prefs.rememberedChoice(item.f.kind)?.let { item.checked = it }
+                        }
+                    }
+                    Analysis(items, apps.orEmpty().associateBy { it.pkg }, SystemClock.elapsedRealtime() - start, options)
                 }
             }
             result.onSuccess { analysis = it }.onFailure { error = it.toString() }
@@ -195,8 +214,10 @@ fun App(resumeTick: Int) {
     }
 
     fun clean() {
+        confirming = false
         val selected = analysis?.checkable.orEmpty().filter { it.selected }
         if (selected.isEmpty() || steps != null) return
+        prefs.rememberChoices(analysis?.items.orEmpty())
         // Files first, then the system dialogs, so the long part runs without waiting on the user.
         val list = (selected.filterNot { it.isSystemDialog } + selected.filter { it.isSystemDialog }).map(::Step)
         steps = list
@@ -260,6 +281,15 @@ fun App(resumeTick: Int) {
         }
     }
 
+    fun requestClean() {
+        if (prefs.confirm) confirming = true else clean()
+    }
+
+    fun resetSelection() {
+        prefs.forgetChoices()
+        analysis?.items?.forEach { it.checked = it.f.checked }
+    }
+
     fun closeReport() {
         report = null
         analysis = null
@@ -275,8 +305,8 @@ fun App(resumeTick: Int) {
         bottomBar = {
             if (running == null && finished == null && detailItem == null && (skipWelcome || filesOk && usageOk)) {
                 Column {
-                    if (tab != Tab.HEALTH && current != null && current.checkable.isNotEmpty()) {
-                        SelectionBar(current, onClean = ::clean)
+                    if ((tab == Tab.CLEAN || tab == Tab.APPS) && current != null && current.checkable.isNotEmpty()) {
+                        SelectionBar(current, onClean = ::requestClean)
                     }
                     NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
                         Tab.entries.forEach {
@@ -297,6 +327,10 @@ fun App(resumeTick: Int) {
             }
         },
     ) { pad ->
+        if (confirming && current != null) {
+            ConfirmDialog(current, onConfirm = ::clean, onDismiss = { confirming = false })
+        }
+        CompositionLocalProvider(LocalScanOptions provides (current?.options ?: prefs.scanOptions())) {
         Box(Modifier.padding(pad).fillMaxSize()) {
             when {
                 !skipWelcome && (!filesOk || !usageOk) -> Welcome(
@@ -335,16 +369,31 @@ fun App(resumeTick: Int) {
                         filesOk = filesOk,
                         usageOk = usageOk,
                         onAnalyze = ::runAnalysis,
-                        onClean = ::clean,
+                        onClean = ::requestClean,
                         onTab = { tab = it },
                     )
                     Tab.CLEAN -> CleanPage(current, onAnalyze = ::runAnalysis, onOpen = { detail = it })
                     Tab.APPS -> AppsPage(current, onAnalyze = ::runAnalysis)
+                    Tab.OPTIONS -> OptionsPage(prefs, filesOk, usageOk, onResetSelection = ::resetSelection)
                     }
                 }
             }
         }
+        }
     }
+}
+
+/** "Clean 4.5 GB?" before anything is deleted (Options: ask before cleaning). */
+@Composable
+private fun ConfirmDialog(a: Analysis, onConfirm: () -> Unit, onDismiss: () -> Unit) {
+    val count = a.checkable.count { it.selected }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.confirm_title, size(a.selectedBytes))) },
+        text = { Text(pluralStringResource(R.plurals.confirm_text, count, count)) },
+        confirmButton = { Button(onClick = onConfirm) { Text(stringResource(R.string.confirm_clean)) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
+    )
 }
 
 internal fun Context.open(intent: Intent) {

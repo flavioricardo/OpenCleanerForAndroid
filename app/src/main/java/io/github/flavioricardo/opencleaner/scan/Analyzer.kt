@@ -22,6 +22,7 @@ fun analyze(
     storage: File?,
     apps: List<AppInfo>?,
     now: Long,
+    options: ScanOptions = ScanOptions(),
     progress: (Phase, Int, Int) -> Unit = { _, _, _ -> },
 ): List<Finding> {
     val out = mutableListOf<Finding>()
@@ -35,10 +36,15 @@ fun analyze(
         val wa = whatsAppRoots(storage)
         fun underWhatsApp(f: File) = wa.any { f.path.startsWith(it.path + File.separator) }
 
-        val backups = wa.flatMap(::oldBackups)
-        val statuses = wa.flatMap(::statusFiles)
-        val apks = downloadApks(storage)
-        val thumbnails = thumbnailFiles(storage)
+        // Nothing inside a protected folder is ever deleted, by any item.
+        val guarded = options.protectedDirs
+        fun isProtected(f: File) = guarded.any { f.path == it.path || f.path.startsWith(it.path + File.separator) }
+        fun holdsProtected(dir: File) = guarded.any { it.path.startsWith(dir.path + File.separator) }
+
+        val backups = wa.flatMap(::oldBackups).filterNot(::isProtected)
+        val statuses = wa.flatMap(::statusFiles).filterNot(::isProtected)
+        val apks = downloadApks(storage).filterNot(::isProtected)
+        val thumbnails = thumbnailFiles(storage).filterNot(::isProtected)
         // Files another item already deletes stay out of the duplicate scan, so the copy a
         // group keeps is never deleted by some other item.
         val claimed = (backups + statuses + apks + thumbnails).toSet()
@@ -57,12 +63,19 @@ fun analyze(
             val rel = f.relativeTo(storage).invariantSeparatorsPath
             return !rel.startsWith("Android/") && rel.split('/').none { it.startsWith(".") }
         }
-        val empty = emptyDirs(storage)
+        val empty = emptyDirs(storage).filterNot { isProtected(it) || holdsProtected(it) }
         val removable = findDuplicates(
             all.filter { it !in claimed && sizeOf(it) >= MIN_DUPLICATE_BYTES && duplicateCandidate(it) },
             sizeOf,
             onRead = { done, total -> progress(Phase.DUPLICATES, done, total) },
-        ) { if (underWhatsApp(it)) 1 else 0 }.flatMap { it.remove }
+        ) {
+            // A protected copy always stays; otherwise the copy outside WhatsApp does.
+            when {
+                isProtected(it) -> -1
+                underWhatsApp(it) -> 1
+                else -> 0
+            }
+        }.flatMap { it.remove }.filterNot(::isProtected)
         val removableSet = removable.toSet()
 
         out += files(Kind.WA_DUPLICATES, removable.filter(::underWhatsApp), true)
@@ -71,7 +84,11 @@ fun analyze(
         out += files(Kind.APKS, apks, true)
         out += files(Kind.THUMBNAILS, thumbnails, true)
         out += files(Kind.DUPLICATES, removable.filterNot(::underWhatsApp), true)
-        out += files(Kind.LARGE_VIDEOS, largeVideos(all.filter { it !in claimed && it !in removableSet }, sizeOf = sizeOf), false)
+        out += files(Kind.LARGE_VIDEOS, largeVideos(
+            all.filter { it !in claimed && it !in removableSet && !isProtected(it) },
+            minBytes = options.minVideoBytes,
+            sizeOf = sizeOf,
+        ), false)
         if (empty.isNotEmpty()) out += Finding(Kind.EMPTY_DIRS, null, 0, Action.DeleteFiles(empty), true)
     }
 
@@ -90,7 +107,7 @@ fun analyze(
         val unused = apps
             .filter {
                 !it.system && !it.alwaysOn && it.pkg != OWN_PACKAGE &&
-                    now - maxOf(it.lastUsed, it.installed) > 30 * DAY
+                    now - maxOf(it.lastUsed, it.installed) > options.unusedDays * DAY
             }
             .sortedByDescending { it.appBytes + it.dataBytes }
         unused.forEach {

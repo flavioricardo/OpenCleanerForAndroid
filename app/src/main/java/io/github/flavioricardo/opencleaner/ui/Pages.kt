@@ -180,7 +180,7 @@ internal fun title(f: Finding, short: Boolean = false): String = when (f.kind) {
     Kind.THUMBNAILS -> stringResource(R.string.k_thumbnails)
     Kind.EMPTY_DIRS -> stringResource(R.string.k_empty_dirs)
     Kind.DUPLICATES -> stringResource(R.string.k_duplicates)
-    Kind.LARGE_VIDEOS -> stringResource(R.string.k_large_videos)
+    Kind.LARGE_VIDEOS -> stringResource(R.string.k_large_videos, size(LocalScanOptions.current.minVideoBytes))
     Kind.UNUSED_APP -> if (short) f.label.orEmpty() else stringResource(R.string.k_unused_app, f.label.orEmpty())
     Kind.MANUAL_APP, Kind.APP_CACHE -> f.label.orEmpty()
     Kind.NEEDS_FILES_ACCESS -> stringResource(R.string.k_needs_files)
@@ -403,7 +403,7 @@ private fun AreaGrid(a: Analysis, filesOk: Boolean, usageOk: Boolean, onTab: (Ta
             AreaCard(
                 Lucide.Package, stringResource(R.string.area_unused),
                 if (usageOk) unused.size.toString() else "—",
-                if (usageOk) stringResource(R.string.area_unused_sub, size(unused.sumOf { it.bytes })) else needsUsage,
+                if (usageOk) stringResource(R.string.area_unused_sub, size(unused.sumOf { it.bytes }), a.options.unusedDays) else needsUsage,
                 Modifier.weight(1f),
                 attention = unused.isNotEmpty(),
             ) { onTab(Tab.APPS) }
@@ -557,8 +557,8 @@ internal fun AppsPage(analysis: Analysis?, onAnalyze: () -> Unit) {
         val now = System.currentTimeMillis()
         item {
             Panel {
-                SectionHeader(Lucide.Package, stringResource(R.string.unused_title), stringResource(R.string.hint_uninstall))
-                if (unused.isEmpty()) Muted(stringResource(R.string.unused_none), Modifier.padding(top = 8.dp))
+                SectionHeader(Lucide.Package, stringResource(R.string.unused_title, analysis.options.unusedDays), stringResource(R.string.hint_uninstall))
+                if (unused.isEmpty()) Muted(stringResource(R.string.unused_none, analysis.options.unusedDays), Modifier.padding(top = 8.dp))
                 unused.forEach { item ->
                     val pkg = (item.f.action as Action.Uninstall).pkg
                     val last = analysis.apps[pkg]?.lastUsed ?: 0L
