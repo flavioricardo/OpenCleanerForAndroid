@@ -35,10 +35,6 @@
     <string name="area_whatsapp">WhatsApp</string>
     <string name="area_whatsapp_sub">duplicados, backups e status</string>
     <string name="area_cache">Cache dos apps</string>
-    <plurals name="of_apps">
-        <item quantity="one">em %d app</item>
-        <item quantity="other">em %d apps</item>
-    </plurals>
     <string name="area_unused">Apps parados</string>
     <string name="area_unused_sub">%1$s sem abrir há 30+ dias</string>
     <string name="area_files">Arquivos</string>
@@ -54,7 +50,8 @@
     <string name="group_system">Sistema e apps</string>
     <string name="group_files">Arquivos</string>
     <string name="nothing">Nada para limpar agora.</string>
-    <string name="selection_items">%1$d de %2$d itens marcados</string>
+    <string name="selection_items">Limpeza: %1$d de %2$d · Apps: %3$d de %4$d</string>
+    <string name="selection_items_clean">Limpeza: %1$d de %2$d marcados</string>
     <string name="selection_bytes">%1$s de %2$s</string>
 
     <string name="apps_title">Apps</string>
@@ -133,13 +130,26 @@
     <string name="wa_duplicates_warning">uma cópia fica no celular; a conversa mostra essa mídia como indisponível</string>
     <string name="hint_backups">o backup atual fica</string>
     <string name="hint_statuses">status que você já viu</string>
-    <string name="hint_cache">os apps recriam; o Android pede confirmação</string>
+    <string name="hint_cache">só o cache externo; o Android pede confirmação</string>
     <string name="hint_apks">instaladores já usados</string>
     <string name="hint_thumbnails">a galeria recria quando precisar</string>
     <string name="hint_duplicates">fica uma cópia</string>
     <string name="hint_videos">pessoais: revise antes de limpar</string>
     <string name="hint_uninstall">O Android pede confirmação para cada app.</string>
 
+    <string name="area_cache_sub">%1$s limpa aqui; o resto, app por app</string>
+    <string name="area_cache_sub_only">%1$s limpáveis aqui</string>
+    <string name="app_cache_title">Cache que só o próprio app limpa</string>
+    <string name="app_cache_sub">O Android não deixa outro app limpar este cache. Abra, entre em Armazenamento e toque em Limpar cache: seus dados ficam.</string>
+    <string name="app_cache_amount">%1$s de cache</string>
+    <string name="cancel_analysis">Cancelar análise</string>
+    <string name="stop_cleaning">Parar limpeza</string>
+    <string name="stopping">Parando…</string>
+    <string name="stop_hint">Para antes do próximo arquivo. O que já foi apagado continua apagado.</string>
+    <string name="step_stopped_at">parado em %1$d de %2$d</string>
+    <string name="step_skipped">não feito: você parou a limpeza</string>
+    <string name="step_cache_empty">o Android limpou; o cache externo já estava vazio</string>
+    <string name="result_title_stopped">Limpeza interrompida</string>
     <plurals name="files">
         <item quantity="one">%d arquivo</item>
         <item quantity="other">%d arquivos</item>

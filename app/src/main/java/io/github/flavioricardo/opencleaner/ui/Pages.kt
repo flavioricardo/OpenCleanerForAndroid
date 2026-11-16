@@ -182,7 +182,7 @@ internal fun title(f: Finding, short: Boolean = false): String = when (f.kind) {
     Kind.DUPLICATES -> stringResource(R.string.k_duplicates)
     Kind.LARGE_VIDEOS -> stringResource(R.string.k_large_videos)
     Kind.UNUSED_APP -> if (short) f.label.orEmpty() else stringResource(R.string.k_unused_app, f.label.orEmpty())
-    Kind.MANUAL_APP -> f.label.orEmpty()
+    Kind.MANUAL_APP, Kind.APP_CACHE -> f.label.orEmpty()
     Kind.NEEDS_FILES_ACCESS -> stringResource(R.string.k_needs_files)
     Kind.NEEDS_USAGE_ACCESS -> stringResource(R.string.k_needs_usage)
 }
@@ -212,6 +212,7 @@ internal fun kindIcon(kind: Kind): ImageVector = when (kind) {
     Kind.LARGE_VIDEOS -> Lucide.Film
     Kind.UNUSED_APP -> Lucide.Package
     Kind.MANUAL_APP -> Lucide.ExternalLink
+    Kind.APP_CACHE -> Lucide.Database
     Kind.NEEDS_FILES_ACCESS, Kind.NEEDS_USAGE_ACCESS -> Lucide.TriangleAlert
 }
 
@@ -375,7 +376,7 @@ private fun AreaGrid(a: Analysis, filesOk: Boolean, usageOk: Boolean, onTab: (Ta
     val needsFiles = stringResource(R.string.needs_files_short)
     val needsUsage = stringResource(R.string.needs_usage_short)
     val unused = a.items.filter { it.f.kind == Kind.UNUSED_APP }
-    val cacheApps = a.apps.values.count { it.cacheBytes > 0 }
+    val perAppCache = a.of(listOf(Kind.APP_CACHE))
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             AreaCard(
@@ -386,14 +387,17 @@ private fun AreaGrid(a: Analysis, filesOk: Boolean, usageOk: Boolean, onTab: (Ta
             ) { onTab(Tab.CLEAN) }
             AreaCard(
                 Lucide.Database, stringResource(R.string.area_cache),
-                if (filesOk && usageOk) size(a.of(SYSTEM_KINDS).sumOf { it.bytes }) else "—",
+                if (usageOk) size(a.of(SYSTEM_KINDS + Kind.APP_CACHE).sumOf { it.bytes }) else "—",
                 when {
                     !usageOk -> needsUsage
                     !filesOk -> needsFiles
-                    else -> pluralStringResource(R.plurals.of_apps, cacheApps, cacheApps)
+                    else -> stringResource(
+                        if (perAppCache.isEmpty()) R.string.area_cache_sub_only else R.string.area_cache_sub,
+                        size(a.of(SYSTEM_KINDS).sumOf { it.bytes }),
+                    )
                 },
                 Modifier.weight(1f),
-            ) { onTab(Tab.CLEAN) }
+            ) { onTab(if (perAppCache.isNotEmpty()) Tab.APPS else Tab.CLEAN) }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             AreaCard(
@@ -510,7 +514,15 @@ internal fun SelectionBar(a: Analysis, onClean: () -> Unit) {
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Muted(stringResource(R.string.selection_items, count, a.checkable.size))
+                    val apps = a.checkable.filter { it.f.kind == Kind.UNUSED_APP }
+                    val rest = a.checkable - apps.toSet()
+                    Muted(
+                        if (apps.isEmpty()) stringResource(R.string.selection_items_clean, rest.count { it.selected }, rest.size)
+                        else stringResource(
+                            R.string.selection_items,
+                            rest.count { it.selected }, rest.size, apps.count { it.selected }, apps.size,
+                        ),
+                    )
                     Text(
                         stringResource(R.string.selection_bytes, size(a.selectedBytes), size(a.possibleBytes)),
                         style = MaterialTheme.typography.bodyMedium,
@@ -568,13 +580,23 @@ internal fun AppsPage(analysis: Analysis?, onAnalyze: () -> Unit) {
                 }
             }
         }
+        val perAppCache = analysis.items.filter { it.f.kind == Kind.APP_CACHE }
+        if (perAppCache.isNotEmpty()) item {
+            Panel {
+                SectionHeader(Lucide.Database, stringResource(R.string.app_cache_title), stringResource(R.string.app_cache_sub))
+                perAppCache.forEach {
+                    HorizontalDivider(Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.outlineVariant)
+                    ManualRow(it, stringResource(R.string.app_cache_amount, size(it.f.bytes))) { pkg -> ctx.open(appSettingsIntent(pkg)) }
+                }
+            }
+        }
         item {
             Panel {
                 SectionHeader(Lucide.Info, stringResource(R.string.only_you), stringResource(R.string.only_you_sub))
                 if (manual.isEmpty()) Muted(stringResource(R.string.only_you_none), Modifier.padding(top = 8.dp))
                 manual.forEach {
                     HorizontalDivider(Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.outlineVariant)
-                    ManualRow(it) { pkg -> ctx.open(appSettingsIntent(pkg)) }
+                    ManualRow(it, stringResource(R.string.manual_data, size(it.f.bytes))) { pkg -> ctx.open(appSettingsIntent(pkg)) }
                 }
             }
         }
@@ -593,14 +615,14 @@ internal fun SectionHeader(icon: ImageVector, title: String, subtitle: String) {
 }
 
 @Composable
-internal fun ManualRow(item: Item, onOpen: (String) -> Unit) {
+internal fun ManualRow(item: Item, detail: String, onOpen: (String) -> Unit) {
     val pkg = (item.f.action as Action.OpenAppSettings).pkg
     Row(verticalAlignment = Alignment.CenterVertically) {
         AppIcon(pkg)
         Spacer(Modifier.width(10.dp))
         Column(Modifier.weight(1f)) {
             Text(item.f.label.orEmpty(), style = MaterialTheme.typography.bodyLarge)
-            Muted(stringResource(R.string.manual_data, size(item.f.bytes)))
+            Muted(detail)
         }
         TextButton(onClick = { onOpen(pkg) }) {
             Text(stringResource(R.string.open))

@@ -5,6 +5,9 @@ import java.io.File
 private const val DAY = 24L * 60 * 60 * 1000
 private const val GB = 1024L * 1024 * 1024
 
+// ponytail: 100 MB keeps the per-app cache list short; lower it if people want more apps there.
+private const val MIN_APP_CACHE_BYTES = 100L * 1024 * 1024
+
 // ponytail: 100 KB floor keeps thousands of tiny icons out of the duplicate scan; lower it if it misses gains.
 private const val MIN_DUPLICATE_BYTES = 100L * 1024
 
@@ -75,8 +78,14 @@ fun analyze(
     if (apps == null) {
         out += Finding(Kind.NEEDS_USAGE_ACCESS, null, 0, null, false)
     } else {
-        // The system cache dialog only opens for apps with all-files access.
-        if (storage != null) out += Finding(Kind.CACHE, null, apps.sumOf { it.cacheBytes }, Action.ClearAllCache, true)
+        // The system cache dialog only opens for apps with all-files access, and only clears
+        // external caches. Internal cache is cleared app by app in the app's settings page.
+        if (storage != null) out += Finding(Kind.CACHE, null, apps.sumOf { it.externalCacheBytes }, Action.ClearAllCache, true)
+        apps.filter { it.pkg != OWN_PACKAGE && it.cacheBytes - it.externalCacheBytes >= MIN_APP_CACHE_BYTES }
+            .sortedByDescending { it.cacheBytes - it.externalCacheBytes }
+            .forEach {
+                out += Finding(Kind.APP_CACHE, it.label, it.cacheBytes - it.externalCacheBytes, Action.OpenAppSettings(it.pkg), false)
+            }
 
         val unused = apps
             .filter {

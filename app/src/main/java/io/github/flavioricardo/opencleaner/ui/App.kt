@@ -1,5 +1,6 @@
 package io.github.flavioricardo.opencleaner.ui
 
+import android.app.Activity
 import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
@@ -52,6 +53,9 @@ import io.github.flavioricardo.opencleaner.system.storageUsage
 import io.github.flavioricardo.opencleaner.system.uninstallIntent
 import io.github.flavioricardo.opencleaner.system.usageIntent
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -65,7 +69,8 @@ internal class Item(val f: Finding) {
     val excluded = mutableStateMapOf<File, Long>()
     val files: List<File> get() = (f.action as? Action.DeleteFiles)?.files.orEmpty()
     val bytes: Long get() = f.bytes - excluded.values.sum()
-    val checkable: Boolean get() = f.action != null && f.kind != Kind.MANUAL_APP
+    /** Things OpenCleaner can do itself; MANUAL_APP and APP_CACHE only open the app's settings. */
+    val checkable: Boolean get() = f.action != null && f.kind != Kind.MANUAL_APP && f.kind != Kind.APP_CACHE
     val selected: Boolean get() = checked && checkable && (files.isEmpty() || excluded.size < files.size)
     val isSystemDialog: Boolean get() = f.action is Action.ClearAllCache || f.action is Action.Uninstall
 }
@@ -76,7 +81,7 @@ internal enum class Tab(val label: Int, val icon: ImageVector) {
     APPS(R.string.tab_apps, Lucide.LayoutGrid),
 }
 
-internal enum class Status { PENDING, RUNNING, DONE, WARN }
+internal enum class Status { PENDING, RUNNING, DONE, WARN, SKIPPED }
 
 /** One line of the analysis or cleaning progress. key is a Phase or an Item. */
 internal class Step(val key: Any) {
@@ -87,7 +92,7 @@ internal class Step(val key: Any) {
     var bytes by mutableLongStateOf(-1L)
 }
 
-internal class Report(val steps: List<Step>, val usedBefore: Long, val usedAfter: Long, val millis: Long)
+internal class Report(val steps: List<Step>, val usedBefore: Long, val usedAfter: Long, val millis: Long, val stopped: Boolean)
 
 internal val WHATSAPP_KINDS = listOf(Kind.WA_DUPLICATES, Kind.WA_BACKUPS, Kind.WA_STATUSES)
 internal val SYSTEM_KINDS = listOf(Kind.CACHE)
@@ -117,25 +122,27 @@ fun App(resumeTick: Int) {
     var report by remember { mutableStateOf<Report?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
     var usageTick by remember { mutableIntStateOf(0) }
+    var analysisJob by remember { mutableStateOf<Job?>(null) }
+    var stopRequested by remember { mutableStateOf(false) }
     val usage = remember(resumeTick, usageTick) { storageUsage() }
 
-    // System dialogs (clear cache, uninstall) are awaited one at a time.
-    val dialogClosed = remember { Channel<Unit>(Channel.CONFLATED) }
+    // System dialogs (clear cache, uninstall) are awaited one at a time; they return a result code.
+    val dialogClosed = remember { Channel<Int>(Channel.CONFLATED) }
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
-        dialogClosed.trySend(Unit)
+        dialogClosed.trySend(it.resultCode)
     }
 
-    suspend fun awaitDialog(intent: Intent): Boolean {
+    /** The dialog's result code, or null when it could not open. */
+    suspend fun awaitDialog(intent: Intent): Int? {
         dialogClosed.tryReceive()
         try {
             launcher.launch(intent)
         } catch (e: ActivityNotFoundException) {
-            return false
+            return null
         } catch (e: SecurityException) {
-            return false
+            return null
         }
-        dialogClosed.receive()
-        return true
+        return dialogClosed.receive()
     }
 
     // steps is set before launching, so a second tap finds a run in progress and does nothing.
@@ -144,11 +151,13 @@ fun App(resumeTick: Int) {
         val list = Phase.entries.map(::Step)
         steps = list
         cleaning = false
-        scope.launch {
+        analysisJob = scope.launch {
             error = null
             report = null
             val start = SystemClock.elapsedRealtime()
+            val job = coroutineContext.job
             fun at(phase: Phase, done: Int, total: Int) {
+                job.ensureActive() // Cancel stops the scan at its next progress report.
                 list.forEach {
                     val p = it.key as Phase
                     if (p == phase) {
@@ -179,6 +188,12 @@ fun App(resumeTick: Int) {
         }
     }
 
+    fun cancelAnalysis() {
+        analysisJob?.cancel()
+        analysisJob = null
+        steps = null
+    }
+
     fun clean() {
         val selected = analysis?.checkable.orEmpty().filter { it.selected }
         if (selected.isEmpty() || steps != null) return
@@ -186,24 +201,32 @@ fun App(resumeTick: Int) {
         val list = (selected.filterNot { it.isSystemDialog } + selected.filter { it.isSystemDialog }).map(::Step)
         steps = list
         cleaning = true
+        stopRequested = false
         scope.launch {
             val start = SystemClock.elapsedRealtime()
             val before = storageUsage().first
             val deleted = mutableListOf<File>()
             for (step in list) {
                 val item = step.key as Item
+                if (stopRequested) {
+                    step.status = Status.SKIPPED
+                    continue
+                }
                 step.status = Status.RUNNING
                 when (val action = item.f.action) {
                     is Action.DeleteFiles -> {
                         val files = item.files.filter { it !in item.excluded }
                         step.total = files.size
-                        step.bytes = withContext(Dispatchers.IO) { deleteFiles(files) { step.done = it } }
-                        deleted += files
-                        step.status = Status.DONE
+                        step.bytes = withContext(Dispatchers.IO) {
+                            deleteFiles(files, shouldStop = { stopRequested }) { step.done = it }
+                        }
+                        deleted += files.take(step.done)
+                        // Stopped in the middle: say how far it got.
+                        step.status = if (step.done < files.size) Status.WARN else Status.DONE
                     }
                     Action.ClearAllCache -> {
                         val usedBefore = storageUsage().first
-                        val shown = awaitDialog(clearCacheIntent())
+                        val result = awaitDialog(clearCacheIntent())
                         // The system may free the space a moment after the dialog closes.
                         var freed = 0L
                         for (i in 1..6) {
@@ -212,7 +235,8 @@ fun App(resumeTick: Int) {
                             delay(500)
                         }
                         step.bytes = freed
-                        step.status = if (shown && freed > 0) Status.DONE else Status.WARN
+                        // RESULT_OK: Android cleared the external caches, even if they were already empty.
+                        step.status = if (result == Activity.RESULT_OK || freed > 0) Status.DONE else Status.WARN
                     }
                     is Action.Uninstall -> {
                         awaitDialog(uninstallIntent(action.pkg))
@@ -230,7 +254,7 @@ fun App(resumeTick: Int) {
                 }
             }
             rescan(ctx, deleted)
-            report = Report(list, before, storageUsage().first, SystemClock.elapsedRealtime() - start)
+            report = Report(list, before, storageUsage().first, SystemClock.elapsedRealtime() - start, stopRequested)
             steps = null
             usageTick++
         }
@@ -283,8 +307,10 @@ fun App(resumeTick: Int) {
                     onContinue = { skipWelcome = true },
                 )
                 running != null -> {
-                    BackHandler {} // Leaving mid-step would hide where the work stopped.
-                    StepsPage(running, cleaning)
+                    // Back does what the button under the steps does.
+                    val onCancel = if (cleaning) ({ stopRequested = true }) else ::cancelAnalysis
+                    BackHandler(onBack = onCancel)
+                    StepsPage(running, cleaning, stopping = cleaning && stopRequested, onCancel = onCancel)
                 }
                 finished != null -> {
                     BackHandler(onBack = ::closeReport)
