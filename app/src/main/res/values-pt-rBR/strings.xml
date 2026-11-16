@@ -1,47 +1,149 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="tab_health">Saúde</string>
+    <string name="tab_clean">Limpeza</string>
+    <string name="tab_apps">Apps</string>
+
     <string name="welcome_title">Antes da primeira análise</string>
-    <string name="welcome_files">Acesso a todos os arquivos: para achar duplicados, sobras do WhatsApp e lixo, e apagar só o que você confirmar.</string>
-    <string name="welcome_usage">Acesso de uso: para ver o tamanho e o cache de cada app, e quando você o abriu pela última vez.</string>
-    <string name="welcome_privacy">O OpenCleaner não tem permissão de internet: nada sai do seu celular.</string>
+    <string name="welcome_subtitle">O OpenCleaner precisa de duas permissões especiais. Sem uma delas, a parte correspondente da análise fica de fora.</string>
+    <string name="perm_files">Acesso a todos os arquivos</string>
+    <string name="perm_usage">Acesso a dados de uso</string>
+    <string name="welcome_files">Para achar duplicados, sobras do WhatsApp e lixo, e apagar só o que você confirmar.</string>
+    <string name="welcome_usage">Para ver o tamanho e o cache de cada app, e quando você o abriu pela última vez.</string>
+    <string name="welcome_privacy">Sem permissão de internet, sem anúncios, sem telemetria: nada sai do seu celular. Analisar só lê; nada é apagado até você tocar em Limpar.</string>
     <string name="continue_anyway">Continuar mesmo assim</string>
     <string name="grant">Conceder</string>
     <string name="granted">Concedido</string>
 
-    <string name="used_of">%1$s de %2$s usados</string>
+    <string name="health_title">Verificação de saúde</string>
+    <string name="health_subtitle">Quanto espaço dá para recuperar e o que mais merece atenção neste celular.</string>
+    <string name="storage_internal">Armazenamento interno</string>
+    <string name="free_amount">%1$s livres</string>
+    <string name="of_total">de %1$s</string>
+    <string name="legend_used">Usado</string>
+    <string name="legend_selected">Marcado para limpar</string>
+    <string name="legend_free">Livre</string>
+    <string name="analyze_hint">Analise para ver quanto dá para liberar. Analisar só lê; nada é apagado.</string>
     <string name="analyze">Analisar</string>
     <string name="analyze_again">Analisar de novo</string>
-    <string name="analyzing">Analisando. Só leitura, nada é apagado.</string>
-    <string name="resolving">Limpando…</string>
-    <string name="can_free">Dá para liberar %1$s</string>
+    <string name="clean">Limpar %1$s</string>
+    <string name="analysis_done">Análise concluída: %1$s liberáveis em %2$d itens (%3$.1f s)</string>
+    <plurals name="selected_summary">
+        <item quantity="one">%1$s marcados em %2$d item, de %3$s que dá para liberar.</item>
+        <item quantity="other">%1$s marcados em %2$d itens, de %3$s que dá para liberar.</item>
+    </plurals>
+    <string name="area_whatsapp">WhatsApp</string>
+    <string name="area_whatsapp_sub">duplicados, backups e status</string>
+    <string name="area_cache">Cache dos apps</string>
+    <plurals name="of_apps">
+        <item quantity="one">em %d app</item>
+        <item quantity="other">em %d apps</item>
+    </plurals>
+    <string name="area_unused">Apps parados</string>
+    <string name="area_unused_sub">%1$s sem abrir há 30+ dias</string>
+    <string name="area_files">Arquivos</string>
+    <string name="area_files_sub">vídeos, instaladores e duplicados</string>
+    <string name="needs_files_short">precisa de acesso a arquivos</string>
+    <string name="needs_usage_short">precisa de acesso de uso</string>
+    <string name="error">A análise falhou: %1$s</string>
+
+    <string name="clean_title">Limpeza</string>
+    <string name="clean_subtitle">Escolha o que limpar. Toque num item para ver exatamente quais arquivos saem.</string>
+    <string name="empty_clean">Analise o celular para ver o que dá para limpar.</string>
+    <string name="group_whatsapp">WhatsApp</string>
+    <string name="group_system">Sistema e apps</string>
+    <string name="group_files">Arquivos</string>
     <string name="nothing">Nada para limpar agora.</string>
-    <string name="resolve">Resolver: %1$s</string>
+    <string name="selection_items">%1$d de %2$d itens marcados</string>
+    <string name="selection_bytes">%1$s de %2$s</string>
+
+    <string name="apps_title">Apps</string>
+    <string name="apps_subtitle">Apps que você não abre mais e os que guardam muitos dados.</string>
+    <string name="empty_apps">Analise o celular para ver os apps parados e os maiores.</string>
+    <string name="unused_title">Sem abrir há 30+ dias</string>
+    <string name="unused_none">Nenhum app parado há mais de 30 dias.</string>
+    <string name="never_opened">nunca aberto</string>
+    <plurals name="last_used_days">
+        <item quantity="one">último uso há %d dia</item>
+        <item quantity="other">último uso há %d dias</item>
+    </plurals>
     <string name="only_you">Só você pode fazer</string>
+    <string name="only_you_sub">Downloads e dados que só o próprio app apaga. O OpenCleaner abre a página certa.</string>
+    <string name="only_you_none">Nenhum app guarda mais de 1 GB de dados.</string>
+    <string name="manual_data">%1$s em dados</string>
     <string name="open">Abrir</string>
     <string name="back">Voltar</string>
-    <string name="freed">Liberado: %1$s</string>
-    <string name="error">A análise falhou: %1$s</string>
+
+    <string name="detail_summary">%1$d de %2$d marcados · %3$s</string>
+    <string name="detail_hint">Desmarque o que quiser manter.</string>
+
+    <string name="analyzing_title">Analisando…</string>
+    <string name="analyzing_subtitle">Só lê. Nada é apagado nesta etapa.</string>
+    <string name="cleaning_title">Limpando…</string>
+    <string name="cleaning_subtitle">Deixe o app aberto até terminar.</string>
+    <string name="phase_apps">Apps e cache</string>
+    <string name="phase_files">Arquivos do armazenamento</string>
+    <string name="phase_whatsapp">WhatsApp e lixo</string>
+    <string name="phase_duplicates">Duplicados</string>
+    <string name="step_no_permission">pulado: falta permissão</string>
+    <string name="step_apps_running">%1$d de %2$d apps</string>
+    <string name="step_whatsapp_running">procurando backups, status e instaladores</string>
+    <string name="step_grouping">agrupando arquivos por tamanho</string>
+    <string name="step_comparing">comparando %1$d de %2$d</string>
+    <string name="step_android_asks">o Android vai pedir confirmação</string>
+    <string name="step_waiting_confirm">aguardando sua confirmação</string>
+    <string name="step_deleting">apagando %1$d de %2$d</string>
+    <string name="step_cache_not_freed">cancelado, ou o Android não liberou nada</string>
+    <string name="step_not_uninstalled">não desinstalado</string>
+    <plurals name="apps_read">
+        <item quantity="one">%d app</item>
+        <item quantity="other">%d apps</item>
+    </plurals>
+    <plurals name="files_read">
+        <item quantity="one">%d arquivo lido</item>
+        <item quantity="other">%d arquivos lidos</item>
+    </plurals>
+    <plurals name="files_compared">
+        <item quantity="one">%d arquivo comparado</item>
+        <item quantity="other">%d arquivos comparados</item>
+    </plurals>
+
+    <string name="result_title">Limpeza concluída</string>
+    <string name="result_subtitle">Em %1$.1f s.</string>
+    <string name="result_freed">Liberado</string>
+    <string name="result_before_after">Antes: %1$s usados · depois: %2$s</string>
+    <string name="back_overview">Voltar à visão geral</string>
 
     <string name="k_wa_duplicates">WhatsApp: mídia duplicada</string>
     <string name="k_wa_backups">WhatsApp: backups locais antigos</string>
     <string name="k_wa_statuses">WhatsApp: status já vistos</string>
+    <string name="s_wa_duplicates">Mídia duplicada</string>
+    <string name="s_wa_backups">Backups locais antigos</string>
+    <string name="s_wa_statuses">Status já vistos</string>
     <string name="k_cache">Cache de todos os apps</string>
     <string name="k_apks">Instaladores (APK) em Download</string>
     <string name="k_thumbnails">Miniaturas da galeria</string>
     <string name="k_empty_dirs">Pastas vazias</string>
     <string name="k_duplicates">Arquivos duplicados</string>
     <string name="k_large_videos">Vídeos acima de 100 MB</string>
-    <string name="k_unused_app">%1$s (sem abrir há 30+ dias)</string>
-    <string name="k_manual_app">%1$s: apagar downloads ou dados</string>
-    <string name="k_needs_files">Precisa de acesso a todos os arquivos</string>
+    <string name="k_unused_app">Desinstalar %1$s</string>
+    <string name="k_needs_files">Precisa de acesso a todos os arquivos para olhar arquivos e WhatsApp</string>
     <string name="k_needs_usage">Precisa de acesso de uso para ver apps e cache</string>
 
-    <string name="wa_duplicates_warning">O arquivo continua no celular, mas aparece como indisponível naquela conversa.</string>
-    <string name="hint_backups">O backup atual fica.</string>
-    <string name="hint_cache">O Android pede confirmação.</string>
-    <string name="hint_thumbnails">A galeria recria quando precisar.</string>
+    <string name="wa_duplicates_warning">uma cópia fica no celular; a conversa mostra essa mídia como indisponível</string>
+    <string name="hint_backups">o backup atual fica</string>
+    <string name="hint_statuses">status que você já viu</string>
+    <string name="hint_cache">os apps recriam; o Android pede confirmação</string>
+    <string name="hint_apks">instaladores já usados</string>
+    <string name="hint_thumbnails">a galeria recria quando precisar</string>
+    <string name="hint_duplicates">fica uma cópia</string>
+    <string name="hint_videos">pessoais: revise antes de limpar</string>
     <string name="hint_uninstall">O Android pede confirmação para cada app.</string>
 
+    <plurals name="files">
+        <item quantity="one">%d arquivo</item>
+        <item quantity="other">%d arquivos</item>
+    </plurals>
     <plurals name="folders">
         <item quantity="one">%d pasta</item>
         <item quantity="other">%d pastas</item>

@@ -2,48 +2,150 @@
 <resources>
     <string name="app_name" translatable="false">OpenCleaner</string>
 
+    <string name="tab_health">Health</string>
+    <string name="tab_clean">Cleanup</string>
+    <string name="tab_apps">Apps</string>
+
     <string name="welcome_title">Before the first analysis</string>
-    <string name="welcome_files">All files access: to find duplicates, WhatsApp leftovers and junk, and delete only what you confirm.</string>
-    <string name="welcome_usage">Usage access: to see the size and cache of each app, and when you last opened it.</string>
-    <string name="welcome_privacy">OpenCleaner has no internet permission: nothing leaves your phone.</string>
+    <string name="welcome_subtitle">OpenCleaner needs two special permissions. Without one of them, its part of the analysis is left out.</string>
+    <string name="perm_files">All files access</string>
+    <string name="perm_usage">Usage access</string>
+    <string name="welcome_files">To find duplicates, WhatsApp leftovers and junk, and delete only what you confirm.</string>
+    <string name="welcome_usage">To see the size and cache of each app, and when you last opened it.</string>
+    <string name="welcome_privacy">No internet permission, no ads, no telemetry: nothing leaves your phone. Analyzing only reads; nothing is deleted until you tap Clean.</string>
     <string name="continue_anyway">Continue anyway</string>
     <string name="grant">Grant</string>
     <string name="granted">Granted</string>
 
-    <string name="used_of">%1$s of %2$s used</string>
+    <string name="health_title">Health check</string>
+    <string name="health_subtitle">How much space you can get back and what deserves attention on this phone.</string>
+    <string name="storage_internal">Internal storage</string>
+    <string name="free_amount">%1$s free</string>
+    <string name="of_total">of %1$s</string>
+    <string name="legend_used">Used</string>
+    <string name="legend_selected">Selected to clean</string>
+    <string name="legend_free">Free</string>
+    <string name="analyze_hint">Analyze to see how much you can free. Analyzing only reads; nothing is deleted.</string>
     <string name="analyze">Analyze</string>
     <string name="analyze_again">Analyze again</string>
-    <string name="analyzing">Analyzing. This only reads, nothing is deleted.</string>
-    <string name="resolving">Cleaning…</string>
-    <string name="can_free">You can free up %1$s</string>
+    <string name="clean">Clean %1$s</string>
+    <string name="analysis_done">Analysis finished: %1$s you can free in %2$d items (%3$.1f s)</string>
+    <plurals name="selected_summary">
+        <item quantity="one">%1$s selected in %2$d item, out of %3$s you can free.</item>
+        <item quantity="other">%1$s selected in %2$d items, out of %3$s you can free.</item>
+    </plurals>
+    <string name="area_whatsapp">WhatsApp</string>
+    <string name="area_whatsapp_sub">duplicates, backups and statuses</string>
+    <string name="area_cache">App cache</string>
+    <plurals name="of_apps">
+        <item quantity="one">in %d app</item>
+        <item quantity="other">in %d apps</item>
+    </plurals>
+    <string name="area_unused">Unused apps</string>
+    <string name="area_unused_sub">%1$s not opened in 30+ days</string>
+    <string name="area_files">Files</string>
+    <string name="area_files_sub">videos, installers and duplicates</string>
+    <string name="needs_files_short">needs all files access</string>
+    <string name="needs_usage_short">needs usage access</string>
+    <string name="error">The analysis failed: %1$s</string>
+
+    <string name="clean_title">Cleanup</string>
+    <string name="clean_subtitle">Choose what to clean. Tap an item to see exactly which files go.</string>
+    <string name="empty_clean">Analyze your phone to see what can be cleaned.</string>
+    <string name="group_whatsapp">WhatsApp</string>
+    <string name="group_system">System and apps</string>
+    <string name="group_files">Files</string>
     <string name="nothing">Nothing to clean right now.</string>
-    <string name="resolve">Resolve: %1$s</string>
+    <string name="selection_items">%1$d of %2$d items selected</string>
+    <string name="selection_bytes">%1$s of %2$s</string>
+
+    <string name="apps_title">Apps</string>
+    <string name="apps_subtitle">Apps you no longer open, and the ones holding a lot of data.</string>
+    <string name="empty_apps">Analyze your phone to see unused apps and the largest ones.</string>
+    <string name="unused_title">Not opened in 30+ days</string>
+    <string name="unused_none">No app has gone unused for more than 30 days.</string>
+    <string name="never_opened">never opened</string>
+    <plurals name="last_used_days">
+        <item quantity="one">last used %d day ago</item>
+        <item quantity="other">last used %d days ago</item>
+    </plurals>
     <string name="only_you">Only you can do</string>
+    <string name="only_you_sub">Downloads and data that only the app itself can delete. OpenCleaner opens the right page.</string>
+    <string name="only_you_none">No app holds more than 1 GB of data.</string>
+    <string name="manual_data">%1$s of data</string>
     <string name="open">Open</string>
     <string name="back">Back</string>
-    <string name="freed">Freed: %1$s</string>
-    <string name="error">Analysis failed: %1$s</string>
+
+    <string name="detail_summary">%1$d of %2$d selected · %3$s</string>
+    <string name="detail_hint">Uncheck what you want to keep.</string>
+
+    <string name="analyzing_title">Analyzing…</string>
+    <string name="analyzing_subtitle">This only reads. Nothing is deleted at this step.</string>
+    <string name="cleaning_title">Cleaning…</string>
+    <string name="cleaning_subtitle">Keep the app open until it finishes.</string>
+    <string name="phase_apps">Apps and cache</string>
+    <string name="phase_files">Storage files</string>
+    <string name="phase_whatsapp">WhatsApp and junk</string>
+    <string name="phase_duplicates">Duplicates</string>
+    <string name="step_no_permission">skipped: permission missing</string>
+    <string name="step_apps_running">%1$d of %2$d apps</string>
+    <string name="step_whatsapp_running">looking for backups, statuses and installers</string>
+    <string name="step_grouping">grouping files by size</string>
+    <string name="step_comparing">comparing %1$d of %2$d</string>
+    <string name="step_android_asks">Android will ask you to confirm</string>
+    <string name="step_waiting_confirm">waiting for your confirmation</string>
+    <string name="step_deleting">deleting %1$d of %2$d</string>
+    <string name="step_cache_not_freed">cancelled, or Android freed nothing</string>
+    <string name="step_not_uninstalled">not uninstalled</string>
+    <plurals name="apps_read">
+        <item quantity="one">%d app</item>
+        <item quantity="other">%d apps</item>
+    </plurals>
+    <plurals name="files_read">
+        <item quantity="one">%d file read</item>
+        <item quantity="other">%d files read</item>
+    </plurals>
+    <plurals name="files_compared">
+        <item quantity="one">%d file compared</item>
+        <item quantity="other">%d files compared</item>
+    </plurals>
+
+    <string name="result_title">Cleanup finished</string>
+    <string name="result_subtitle">In %1$.1f s.</string>
+    <string name="result_freed">Freed</string>
+    <string name="result_before_after">Before: %1$s used · after: %2$s</string>
+    <string name="back_overview">Back to the overview</string>
 
     <string name="k_wa_duplicates">WhatsApp: duplicate media</string>
     <string name="k_wa_backups">WhatsApp: old local backups</string>
     <string name="k_wa_statuses">WhatsApp: statuses already seen</string>
+    <string name="s_wa_duplicates">Duplicate media</string>
+    <string name="s_wa_backups">Old local backups</string>
+    <string name="s_wa_statuses">Statuses already seen</string>
     <string name="k_cache">Cache of all apps</string>
     <string name="k_apks">Installers (APK) in Download</string>
     <string name="k_thumbnails">Gallery thumbnails</string>
     <string name="k_empty_dirs">Empty folders</string>
     <string name="k_duplicates">Duplicate files</string>
     <string name="k_large_videos">Videos over 100 MB</string>
-    <string name="k_unused_app">%1$s (not opened in 30+ days)</string>
-    <string name="k_manual_app">%1$s: delete its downloads or data</string>
-    <string name="k_needs_files">Needs all files access</string>
+    <string name="k_unused_app">Uninstall %1$s</string>
+    <string name="k_needs_files">Needs all files access to look at files and WhatsApp</string>
     <string name="k_needs_usage">Needs usage access to see apps and cache</string>
 
-    <string name="wa_duplicates_warning">The file stays on your phone, but shows as unavailable in that chat.</string>
-    <string name="hint_backups">The current backup stays.</string>
-    <string name="hint_cache">Android asks you to confirm.</string>
-    <string name="hint_thumbnails">The gallery recreates them when needed.</string>
+    <string name="wa_duplicates_warning">one copy stays on the phone; the chat shows that media as unavailable</string>
+    <string name="hint_backups">the current backup stays</string>
+    <string name="hint_statuses">statuses you already watched</string>
+    <string name="hint_cache">apps rebuild it; Android asks you to confirm</string>
+    <string name="hint_apks">installers already used</string>
+    <string name="hint_thumbnails">the gallery rebuilds them when needed</string>
+    <string name="hint_duplicates">one copy stays</string>
+    <string name="hint_videos">personal: check before cleaning</string>
     <string name="hint_uninstall">Android asks you to confirm each app.</string>
 
+    <plurals name="files">
+        <item quantity="one">%d file</item>
+        <item quantity="other">%d files</item>
+    </plurals>
     <plurals name="folders">
         <item quantity="one">%d folder</item>
         <item quantity="other">%d folders</item>

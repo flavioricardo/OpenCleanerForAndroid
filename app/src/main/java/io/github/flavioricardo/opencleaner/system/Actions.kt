@@ -2,6 +2,7 @@ package io.github.flavioricardo.opencleaner.system
 
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.media.MediaScannerConnection
 import android.net.Uri
 import android.os.Environment
@@ -27,4 +28,11 @@ fun storageUsage(): Pair<Long, Long> {
 /** Tells the media index that these paths changed, so the gallery forgets deleted files. */
 fun rescan(ctx: Context, files: List<File>) {
     if (files.isNotEmpty()) MediaScannerConnection.scanFile(ctx, files.map { it.path }.toTypedArray(), null, null)
+}
+
+fun isInstalled(ctx: Context, pkg: String): Boolean = try {
+    ctx.packageManager.getPackageInfo(pkg, 0)
+    true
+} catch (e: PackageManager.NameNotFoundException) {
+    false
 }

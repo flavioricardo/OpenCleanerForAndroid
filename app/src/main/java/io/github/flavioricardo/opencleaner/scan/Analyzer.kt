@@ -13,13 +13,22 @@ private val ALWAYS_SHOWN = setOf(Kind.EMPTY_DIRS, Kind.NEEDS_FILES_ACCESS, Kind.
 /**
  * Builds the list shown after "Analyze". Reads only, never deletes.
  * storage == null: no all-files access. apps == null: no usage access.
+ * progress(phase, done, total) reports each step; total 0 means unknown.
  */
-fun analyze(storage: File?, apps: List<AppInfo>?, now: Long): List<Finding> {
+fun analyze(
+    storage: File?,
+    apps: List<AppInfo>?,
+    now: Long,
+    progress: (Phase, Int, Int) -> Unit = { _, _, _ -> },
+): List<Finding> {
     val out = mutableListOf<Finding>()
 
     if (storage == null) {
         out += Finding(Kind.NEEDS_FILES_ACCESS, null, 0, null, false)
     } else {
+        val all = listFilesUnder(storage) { progress(Phase.FILES, it, 0) }
+
+        progress(Phase.WHATSAPP, 0, 0)
         val wa = whatsAppRoots(storage)
         fun underWhatsApp(f: File) = wa.any { f.path.startsWith(it.path + File.separator) }
 
@@ -31,7 +40,6 @@ fun analyze(storage: File?, apps: List<AppInfo>?, now: Long): List<Finding> {
         // group keeps is never deleted by some other item.
         val claimed = (backups + statuses + apks + thumbnails).toSet()
 
-        val all = listFilesUnder(storage)
         // One stat per file: every call goes through FUSE on a real phone.
         val sizes = all.associateWith { it.length() }
         val sizeOf = { f: File -> sizes[f] ?: f.length() }
@@ -46,9 +54,11 @@ fun analyze(storage: File?, apps: List<AppInfo>?, now: Long): List<Finding> {
             val rel = f.relativeTo(storage).invariantSeparatorsPath
             return !rel.startsWith("Android/") && rel.split('/').none { it.startsWith(".") }
         }
+        val empty = emptyDirs(storage)
         val removable = findDuplicates(
             all.filter { it !in claimed && sizeOf(it) >= MIN_DUPLICATE_BYTES && duplicateCandidate(it) },
             sizeOf,
+            onRead = { done, total -> progress(Phase.DUPLICATES, done, total) },
         ) { if (underWhatsApp(it)) 1 else 0 }.flatMap { it.remove }
         val removableSet = removable.toSet()
 
@@ -59,7 +69,6 @@ fun analyze(storage: File?, apps: List<AppInfo>?, now: Long): List<Finding> {
         out += files(Kind.THUMBNAILS, thumbnails, true)
         out += files(Kind.DUPLICATES, removable.filterNot(::underWhatsApp), true)
         out += files(Kind.LARGE_VIDEOS, largeVideos(all.filter { it !in claimed && it !in removableSet }, sizeOf = sizeOf), false)
-        val empty = emptyDirs(storage)
         if (empty.isNotEmpty()) out += Finding(Kind.EMPTY_DIRS, null, 0, Action.DeleteFiles(empty), true)
     }
 

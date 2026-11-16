@@ -27,6 +27,9 @@ sealed interface Action {
     data class OpenAppSettings(val pkg: String) : Action
 }
 
+/** Steps of an analysis, in the order they run. APPS is loaded by the UI before analyze(). */
+enum class Phase { APPS, FILES, WHATSAPP, DUPLICATES }
+
 enum class Kind {
     WA_DUPLICATES, WA_BACKUPS, WA_STATUSES, CACHE, APKS, THUMBNAILS, EMPTY_DIRS,
     DUPLICATES, LARGE_VIDEOS, UNUSED_APP, MANUAL_APP, NEEDS_FILES_ACCESS, NEEDS_USAGE_ACCESS,
