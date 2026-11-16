@@ -1,13 +1,16 @@
 package io.github.flavioricardo.opencleaner.ui
 
 import android.app.Activity
+import android.app.PendingIntent
 import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.os.Environment
 import android.os.SystemClock
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -47,10 +50,15 @@ import io.github.flavioricardo.opencleaner.scan.Finding
 import io.github.flavioricardo.opencleaner.scan.Kind
 import io.github.flavioricardo.opencleaner.scan.Phase
 import io.github.flavioricardo.opencleaner.scan.ScanOptions
-import io.github.flavioricardo.opencleaner.scan.analyze
+import io.github.flavioricardo.opencleaner.scan.DirNode
+import io.github.flavioricardo.opencleaner.scan.scan
 import io.github.flavioricardo.opencleaner.scan.deleteFiles
 import io.github.flavioricardo.opencleaner.system.allFilesIntent
 import io.github.flavioricardo.opencleaner.system.clearCacheIntent
+import io.github.flavioricardo.opencleaner.system.deleteRequests
+import io.github.flavioricardo.opencleaner.system.loadTrash
+import io.github.flavioricardo.opencleaner.system.mediaUris
+import io.github.flavioricardo.opencleaner.system.trashRequests
 import io.github.flavioricardo.opencleaner.system.hasAllFiles
 import io.github.flavioricardo.opencleaner.system.hasUsage
 import io.github.flavioricardo.opencleaner.system.isInstalled
@@ -76,10 +84,11 @@ internal class Item(val f: Finding) {
     val excluded = mutableStateMapOf<File, Long>()
     val files: List<File> get() = (f.action as? Action.DeleteFiles)?.files.orEmpty()
     val bytes: Long get() = f.bytes - excluded.values.sum()
-    /** Things OpenCleaner can do itself; MANUAL_APP and APP_CACHE only open the app's settings. */
-    val checkable: Boolean get() = f.action != null && f.kind != Kind.MANUAL_APP && f.kind != Kind.APP_CACHE
+    /** Things OpenCleaner can do itself; items that only open the app's settings are not. */
+    val checkable: Boolean get() = f.action != null && f.action !is Action.OpenAppSettings
     val selected: Boolean get() = checked && checkable && (files.isEmpty() || excluded.size < files.size)
-    val isSystemDialog: Boolean get() = f.action is Action.ClearAllCache || f.action is Action.Uninstall
+    val isSystemDialog: Boolean
+        get() = f.action is Action.ClearAllCache || f.action is Action.Uninstall || f.action is Action.EmptyTrash
 }
 
 internal enum class Tab(val label: Int, val icon: ImageVector) {
@@ -101,16 +110,32 @@ internal class Step(val key: Any) {
     var total by mutableIntStateOf(0)
     /** Bytes freed (cleaning) or found; -1 = not shown. */
     var bytes by mutableLongStateOf(-1L)
+    /** Media files of this item sent to the Android trash instead of deleted. */
+    var toTrash by mutableIntStateOf(0)
 }
+
+/** The cleaning step that moves the collected media to the Android trash. */
+internal data object TrashMove
 
 internal class Report(val steps: List<Step>, val usedBefore: Long, val usedAfter: Long, val millis: Long, val stopped: Boolean)
 
-internal val WHATSAPP_KINDS = listOf(Kind.WA_DUPLICATES, Kind.WA_BACKUPS, Kind.WA_STATUSES)
-internal val SYSTEM_KINDS = listOf(Kind.CACHE)
+internal val WHATSAPP_KINDS = listOf(
+    Kind.WA_DUPLICATES, Kind.WA_BACKUPS, Kind.WA_STATUSES,
+    Kind.WA_OLD_VIDEOS, Kind.WA_OLD_IMAGES, Kind.WA_OLD_AUDIO, Kind.WA_OLD_DOCS,
+)
+internal val SYSTEM_KINDS = listOf(Kind.CACHE, Kind.TRASH)
+internal val OLD_KINDS = listOf(Kind.OLD_DOWNLOADS, Kind.OLD_SCREENSHOTS, Kind.OLD_RECORDINGS)
 internal val FILE_KINDS = listOf(Kind.APKS, Kind.THUMBNAILS, Kind.DUPLICATES, Kind.LARGE_VIDEOS, Kind.EMPTY_DIRS)
 
 /** Everything the pages read about the last analysis. */
-internal class Analysis(val items: List<Item>, val apps: Map<String, AppInfo>, val millis: Long, val options: ScanOptions) {
+internal class Analysis(
+    val items: List<Item>,
+    val apps: Map<String, AppInfo>,
+    val millis: Long,
+    val options: ScanOptions,
+    val tree: DirNode?,
+    val biggest: List<Pair<File, Long>>,
+) {
     fun of(kinds: List<Kind>) = items.filter { it.f.kind in kinds }
     val checkable get() = items.filter { it.checkable }
     val selectedBytes get() = checkable.filter { it.selected }.sumOf { it.bytes }
@@ -136,6 +161,7 @@ fun App(resumeTick: Int) {
     var analysisJob by remember { mutableStateOf<Job?>(null) }
     val prefs = remember { Prefs(ctx.applicationContext) }
     var confirming by remember { mutableStateOf(false) }
+    var storageView by remember { mutableStateOf(false) }
     var stopRequested by remember { mutableStateOf(false) }
     val usage = remember(resumeTick, usageTick) { storageUsage() }
 
@@ -143,6 +169,22 @@ fun App(resumeTick: Int) {
     val dialogClosed = remember { Channel<Int>(Channel.CONFLATED) }
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
         dialogClosed.trySend(it.resultCode)
+    }
+
+    // MediaStore trash and delete requests come as PendingIntents.
+    val senderLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) {
+        dialogClosed.trySend(it.resultCode)
+    }
+
+    /** The request's result code, or null when it could not open. */
+    suspend fun awaitSender(request: () -> PendingIntent): Int? {
+        dialogClosed.tryReceive()
+        try {
+            senderLauncher.launch(IntentSenderRequest.Builder(request().intentSender).build())
+        } catch (e: Exception) {
+            return null // Not in MediaStore any more, or the dialog is missing: nothing to wait for.
+        }
+        return dialogClosed.receive()
     }
 
     /** The dialog's result code, or null when it could not open. */
@@ -187,7 +229,9 @@ fun App(resumeTick: Int) {
                 runCatching {
                     val apps = loadApps(ctx) { done, total -> at(Phase.APPS, done, total) }
                     val storage = if (hasAllFiles()) Environment.getExternalStorageDirectory() else null
-                    val findings = analyze(storage, apps, System.currentTimeMillis(), options, ::at)
+                    val trash = if (storage != null) loadTrash(ctx) else null
+                    val result = scan(storage, apps, System.currentTimeMillis(), options, trash, ::at)
+                    val findings = result.findings
                     list.forEach {
                         val needsFiles = it.key != Phase.APPS && storage == null
                         val needsUsage = it.key == Phase.APPS && apps == null
@@ -196,7 +240,10 @@ fun App(resumeTick: Int) {
                     val items = findings.map(::Item).onEach { item ->
                         if (item.checkable) prefs.rememberedChoice(item.f.kind)?.let { item.checked = it }
                     }
-                    Analysis(items, apps.orEmpty().associateBy { it.pkg }, SystemClock.elapsedRealtime() - start, options)
+                    Analysis(
+                        items, apps.orEmpty().associateBy { it.pkg }, SystemClock.elapsedRealtime() - start, options,
+                        result.tree, result.biggest,
+                    )
                 }
             }
             result.onSuccess { analysis = it }.onFailure { error = it.toString() }
@@ -221,8 +268,11 @@ fun App(resumeTick: Int) {
         fun guarded(f: File) = guard.any {
             f.path == it.path || f.path.startsWith(it.path + File.separator) || it.path.startsWith(f.path + File.separator)
         }
-        // Files first, then the system dialogs, so the long part runs without waiting on the user.
-        val list = (selected.filterNot { it.isSystemDialog } + selected.filter { it.isSystemDialog }).map(::Step)
+        // Files first, then the trash, then the system dialogs, so the long part runs without
+        // waiting on the user.
+        val trashStep = if (prefs.useTrash && selected.any { it.f.action is Action.DeleteFiles }) Step(TrashMove) else null
+        val list = selected.filterNot { it.isSystemDialog }.map(::Step) + listOfNotNull(trashStep) +
+            selected.filter { it.isSystemDialog }.map(::Step)
         steps = list
         cleaning = true
         stopRequested = false
@@ -230,23 +280,58 @@ fun App(resumeTick: Int) {
             val start = SystemClock.elapsedRealtime()
             val before = storageUsage().first
             val deleted = mutableListOf<File>()
+            val toTrash = mutableListOf<Pair<Uri, Long>>()
             for (step in list) {
-                val item = step.key as Item
                 if (stopRequested) {
                     step.status = Status.SKIPPED
                     continue
                 }
                 step.status = Status.RUNNING
+                if (step.key == TrashMove) {
+                    // One system dialog per batch; a batch the user cancels stays where it was.
+                    step.total = toTrash.size
+                    var bytes = 0L
+                    var cancelled = false
+                    for (batch in toTrash.chunked(500)) {
+                        val result = awaitSender { trashRequests(ctx, batch.map { it.first }).single() }
+                        if (result == Activity.RESULT_OK) {
+                            bytes += batch.sumOf { it.second }
+                            step.done += batch.size
+                        } else {
+                            cancelled = true
+                        }
+                    }
+                    step.bytes = bytes
+                    step.status = if (cancelled) Status.WARN else Status.DONE
+                    continue
+                }
+                val item = step.key as Item
                 when (val action = item.f.action) {
                     is Action.DeleteFiles -> {
                         val files = item.files.filter { it !in item.excluded && !guarded(it) }
-                        step.total = files.size
-                        step.bytes = withContext(Dispatchers.IO) {
-                            deleteFiles(files, shouldStop = { stopRequested }) { step.done = it }
+                        // With the trash on, photos, videos and audio wait for the trash step.
+                        val media = if (trashStep == null) emptyMap<File, Pair<Uri, Long>>() else withContext(Dispatchers.IO) {
+                            mediaUris(ctx, files).mapValues { (f, uri) -> uri to f.length() }
                         }
-                        deleted += files.take(step.done)
+                        val direct = files.filter { it !in media }
+                        step.total = direct.size
+                        step.toTrash = media.size
+                        toTrash += media.values
+                        step.bytes = withContext(Dispatchers.IO) {
+                            deleteFiles(direct, shouldStop = { stopRequested }) { step.done = it }
+                        }
+                        deleted += direct.take(step.done)
                         // Stopped in the middle: say how far it got.
-                        step.status = if (step.done < files.size) Status.WARN else Status.DONE
+                        step.status = if (step.done < direct.size) Status.WARN else Status.DONE
+                    }
+                    is Action.EmptyTrash -> {
+                        val uris = action.uris.map(Uri::parse)
+                        var ok = true
+                        for (batch in uris.chunked(500)) {
+                            if (awaitSender { deleteRequests(ctx, batch).single() } != Activity.RESULT_OK) ok = false
+                        }
+                        step.bytes = if (ok) item.f.bytes else 0L
+                        step.status = if (ok) Status.DONE else Status.WARN
                     }
                     Action.ClearAllCache -> {
                         val usedBefore = storageUsage().first
@@ -309,7 +394,7 @@ fun App(resumeTick: Int) {
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         bottomBar = {
-            if (running == null && finished == null && detailItem == null && (skipWelcome || filesOk && usageOk)) {
+            if (running == null && finished == null && detailItem == null && !storageView && (skipWelcome || filesOk && usageOk)) {
                 Column {
                     if ((tab == Tab.CLEAN || tab == Tab.APPS) && current != null && current.checkable.isNotEmpty()) {
                         SelectionBar(current, onClean = ::requestClean)
@@ -336,7 +421,7 @@ fun App(resumeTick: Int) {
         if (confirming && current != null) {
             ConfirmDialog(current, onConfirm = ::clean, onDismiss = { confirming = false })
         }
-        val liveOptions = remember(prefs.videoMb, prefs.unusedDays, prefs.protectedDirs) { prefs.scanOptions() }
+        val liveOptions = remember(prefs.videoMb, prefs.unusedDays, prefs.protectedDirs, prefs.oldMonths) { prefs.scanOptions() }
         CompositionLocalProvider(LocalScanOptions provides (current?.options ?: liveOptions)) {
         Box(Modifier.padding(pad).fillMaxSize()) {
             when {
@@ -347,6 +432,10 @@ fun App(resumeTick: Int) {
                     onGrantUsage = { ctx.open(usageIntent()) },
                     onContinue = { skipWelcome = true },
                 )
+                storageView && current?.tree != null -> {
+                    BackHandler { storageView = false }
+                    StoragePage(current, usage) { storageView = false }
+                }
                 running != null -> {
                     // Back does what the button under the steps does.
                     val onCancel = if (cleaning) ({ stopRequested = true }) else ::cancelAnalysis
@@ -378,6 +467,7 @@ fun App(resumeTick: Int) {
                         onAnalyze = ::runAnalysis,
                         onClean = ::requestClean,
                         onTab = { tab = it },
+                        onStorage = { storageView = true },
                     )
                     Tab.CLEAN -> CleanPage(current, onAnalyze = ::runAnalysis, onOpen = { detail = it })
                     Tab.APPS -> AppsPage(current, onAnalyze = ::runAnalysis)

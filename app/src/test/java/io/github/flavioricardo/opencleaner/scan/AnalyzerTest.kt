@@ -107,7 +107,9 @@ class AnalyzerTest {
         // so the duplicate scan must not also delete the other copy.
         tmp.root.put("$wa/Media/.Statuses/v.mp4", bytes(200 * 1024), modified = 1_000_000L)
         val kept = tmp.root.put("$wa/Media/WhatsApp Video/v.mp4", bytes(200 * 1024), modified = 9_000_000L)
-        val deleted = analyze(tmp.root, null, now).flatMap { (it.action as? Action.DeleteFiles)?.files.orEmpty() }
+        // Only what is checked by default: old media is listed too, but unchecked.
+        val deleted = analyze(tmp.root, null, now).filter { it.checked }
+            .flatMap { (it.action as? Action.DeleteFiles)?.files.orEmpty() }
         assertFalse(kept in deleted)
     }
 
@@ -190,5 +192,84 @@ class AnalyzerTest {
         val strict = analyze(tmp.root, apps, now, ScanOptions(minVideoBytes = 200L * 1024 * 1024, unusedDays = 90))
         assertFalse(strict.any { it.kind == Kind.LARGE_VIDEOS })
         assertFalse(strict.any { it.kind == Kind.UNUSED_APP })
+    }
+
+    @Test fun oldMedia_byTypeAndAge() {
+        val old = now - 200 * day
+        val recent = now - 10 * day
+        val oldVideo = tmp.root.put("$wa/Media/WhatsApp Video/a.mp4", bytes(10, seed = 1), modified = old)
+        val oldSent = tmp.root.put("$wa/Media/WhatsApp Video/Sent/b.mp4", bytes(10, seed = 2), modified = old)
+        tmp.root.put("$wa/Media/WhatsApp Video/c.mp4", bytes(10, seed = 3), modified = recent)
+        val oldNote = tmp.root.put("$wa/Media/WhatsApp Voice Notes/202601/n.opus", bytes(10, seed = 4), modified = old)
+        val oldDoc = tmp.root.put("$wa/Media/WhatsApp Documents/d.pdf", bytes(10, seed = 5), modified = old)
+        val biz = tmp.root.put(
+            "Android/media/com.whatsapp.w4b/WhatsApp Business/Media/WhatsApp Business Images/i.jpg",
+            bytes(10, seed = 6), modified = old,
+        )
+        tmp.root.put("$wa/Media/WhatsApp Video/.trashed-1-x.mp4", bytes(10, seed = 7), modified = old)
+        tmp.root.put("$wa/Media/WhatsApp Stickers/s.webp", bytes(10, seed = 8), modified = old)
+        val bigOld = tmp.root.sized("$wa/Media/WhatsApp Video/big.mp4", 150L * 1024 * 1024)
+        bigOld.setLastModified(old)
+
+        val result = analyze(tmp.root, null, now)
+        assertEquals(setOf(oldVideo, oldSent, bigOld), result.of(Kind.WA_OLD_VIDEOS)!!.files().toSet())
+        assertEquals(listOf(oldNote), result.of(Kind.WA_OLD_AUDIO)!!.files())
+        assertEquals(listOf(oldDoc), result.of(Kind.WA_OLD_DOCS)!!.files())
+        assertEquals(listOf(biz), result.of(Kind.WA_OLD_IMAGES)!!.files())
+        assertFalse(result.of(Kind.WA_OLD_VIDEOS)!!.checked)
+        assertNull(result.of(Kind.LARGE_VIDEOS)) // the big old video is listed once, as old media
+
+        val shorter = analyze(tmp.root, null, now, ScanOptions(oldMonths = 12))
+        assertNull(shorter.of(Kind.WA_OLD_VIDEOS))
+    }
+
+    @Test fun oldFiles_downloadsScreenshotsRecordings() {
+        val old = now - 200 * day
+        val dl = tmp.root.put("Download/manual.pdf", bytes(10, seed = 1), modified = old)
+        tmp.root.put("Download/new.pdf", bytes(10, seed = 2), modified = now - day)
+        tmp.root.put("Download/app.apk", bytes(10, seed = 3), modified = old) // already under APKS
+        val shot = tmp.root.put("DCIM/Screenshots/s.png", bytes(10, seed = 4), modified = old)
+        val rec = tmp.root.put("DCIM/Screen recordings/r.mp4", bytes(10, seed = 5), modified = old)
+
+        val result = analyze(tmp.root, null, now)
+        assertEquals(listOf(dl), result.of(Kind.OLD_DOWNLOADS)!!.files())
+        assertEquals(listOf(shot), result.of(Kind.OLD_SCREENSHOTS)!!.files())
+        assertEquals(listOf(rec), result.of(Kind.OLD_RECORDINGS)!!.files())
+        assertTrue(result.filter { it.kind.name.startsWith("OLD_") }.none { it.checked })
+    }
+
+    @Test fun trash_finding() {
+        assertNull(analyze(null, null, now, trash = emptyList()).of(Kind.TRASH))
+        val trash = analyze(null, null, now, trash = listOf(Trashed("content://a", 30), Trashed("content://b", 12))).of(Kind.TRASH)!!
+        assertEquals(42L, trash.bytes)
+        assertFalse(trash.checked)
+        assertEquals(Action.EmptyTrash(listOf("content://a", "content://b")), trash.action)
+    }
+
+    @Test fun privacy_apps() {
+        val apps = listOf(
+            app("com.map").copy(label = "Map", sensitive = setOf(Sensitive.BACKGROUND_LOCATION)),
+            app("com.call").copy(label = "Call", sensitive = setOf(Sensitive.CAMERA, Sensitive.MICROPHONE)),
+            app("com.sys", system = true).copy(sensitive = setOf(Sensitive.CAMERA)),
+            app("com.plain"),
+        )
+        val privacy = analyze(null, apps, now).filter { it.kind == Kind.PRIVACY_APP }
+        assertEquals(listOf("Call", "Map"), privacy.map { it.label })
+        assertEquals(Action.OpenAppSettings("com.call"), privacy.first().action)
+    }
+
+    @Test fun tree_sumsAndBiggest() {
+        tmp.root.put("DCIM/Camera/a.jpg", bytes(300))
+        tmp.root.put("DCIM/b.jpg", bytes(200))
+        tmp.root.put("Music/c.mp3", bytes(100))
+        val result = scan(tmp.root, null, now)
+        val tree = result.tree!!
+        assertEquals(600L, tree.bytes)
+        assertEquals(3, tree.files)
+        assertEquals(listOf("DCIM", "Music"), tree.children.map { it.file.name })
+        assertEquals(500L, tree.find(java.io.File(tmp.root, "DCIM"))!!.bytes)
+        assertEquals(300L, tree.find(java.io.File(tmp.root, "DCIM/Camera"))!!.bytes)
+        assertNull(tree.find(java.io.File(tmp.root, "Nope")))
+        assertEquals(listOf(300L, 200L, 100L), result.biggest.map { it.second })
     }
 }

@@ -230,6 +230,28 @@ internal object Lucide {
             "m6 6 12 12",
         )
     }
+    val Clock by lazy {
+        icon(
+            "M2 12a10 10 0 1 0 20 0a10 10 0 1 0 -20 0",
+            "M12 6v6l4 2",
+        )
+    }
+    val FileText by lazy {
+        icon(
+            "M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z",
+            "M14 2v5a1 1 0 0 0 1 1h5",
+            "M10 9H8",
+            "M16 13H8",
+            "M16 17H8",
+        )
+    }
+    val Mic by lazy {
+        icon(
+            "M12 19v3",
+            "M19 10v2a7 7 0 0 1-14 0v-2",
+            "M12 2h0a3 3 0 0 1 3 3v7a3 3 0 0 1 -3 3h0a3 3 0 0 1 -3 -3v-7a3 3 0 0 1 3 -3z",
+        )
+    }
 }
 
 /** Stroke icon on a 24 x 24 grid; Icon() tints it. */

@@ -8,7 +8,7 @@
 
 ## Status
 
-- **Fase:** v0.3.0: UI no estilo do desktop (abas Saúde/Limpeza/Apps/Opções, progresso por etapa, resultado por categoria, pastas protegidas). Specs e planos em `docs/superpowers/`.
+- **Fase:** v0.4.0: tudo o que dá sem Shizuku (mídia antiga do WhatsApp, arquivos antigos, Espaço por pasta, lixeira opcional, acessos sensíveis), sobre a UI no estilo do desktop. Specs e planos em `docs/superpowers/`.
 - **Validado no S20 FE (v0.1.0):** apagar em `Android/media/com.whatsapp` funciona no Android 13 (1,7 GB liberados).
 - **No ar:** APK como artefato `OpenCleaner-apk` de cada run do CI (GitHub Actions).
 

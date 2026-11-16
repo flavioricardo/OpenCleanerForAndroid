@@ -1,17 +1,20 @@
 package io.github.flavioricardo.opencleaner.system
 
+import android.Manifest
 import android.app.usage.StorageStatsManager
 import android.app.usage.UsageStatsManager
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ApplicationInfo
+import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Process
 import android.os.storage.StorageManager
 import android.provider.Settings
 import io.github.flavioricardo.opencleaner.scan.AppInfo
+import io.github.flavioricardo.opencleaner.scan.Sensitive
 
 private const val YEAR = 365L * 24 * 60 * 60 * 1000
 
@@ -36,7 +39,8 @@ fun loadApps(ctx: Context, onApp: (Int, Int) -> Unit = { _, _ -> }): List<AppInf
     val keyboard = Settings.Secure.getString(ctx.contentResolver, Settings.Secure.DEFAULT_INPUT_METHOD)
         ?.let { ComponentName.unflattenFromString(it)?.packageName }
 
-    val packages = pm.getInstalledPackages(0)
+    // GET_PERMISSIONS: which sensitive permissions each app holds, for the privacy section.
+    val packages = pm.getInstalledPackages(PackageManager.GET_PERMISSIONS)
     return packages.mapIndexedNotNull { i, info ->
         onApp(i + 1, packages.size)
         val app = info.applicationInfo ?: return@mapIndexedNotNull null
@@ -54,9 +58,26 @@ fun loadApps(ctx: Context, onApp: (Int, Int) -> Unit = { _, _ -> }): List<AppInf
                 installed = info.firstInstallTime,
                 system = app.flags and ApplicationInfo.FLAG_SYSTEM != 0,
                 alwaysOn = info.packageName !in launchable || info.packageName == home || info.packageName == keyboard,
+                sensitive = sensitiveOf(info),
             )
         } catch (e: Exception) {
             null // Package removed meanwhile, or stats unavailable: skip it.
         }
     }
+}
+
+private val SENSITIVE = mapOf(
+    Manifest.permission.ACCESS_BACKGROUND_LOCATION to Sensitive.BACKGROUND_LOCATION,
+    Manifest.permission.CAMERA to Sensitive.CAMERA,
+    Manifest.permission.RECORD_AUDIO to Sensitive.MICROPHONE,
+)
+
+/** Sensitive permissions the app holds right now (granted, not only requested). */
+private fun sensitiveOf(info: PackageInfo): Set<Sensitive> {
+    val names = info.requestedPermissions ?: return emptySet()
+    val flags = info.requestedPermissionsFlags ?: return emptySet()
+    return names.indices
+        .filter { flags[it] and PackageInfo.REQUESTED_PERMISSION_GRANTED != 0 }
+        .mapNotNull { SENSITIVE[names[it]] }
+        .toSet()
 }
