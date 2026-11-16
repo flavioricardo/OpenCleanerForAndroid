@@ -10,7 +10,7 @@
 
 - **Fase:** v0.4.0: tudo o que dá sem Shizuku (mídia antiga do WhatsApp, arquivos antigos, Espaço por pasta, lixeira opcional, acessos sensíveis), sobre a UI no estilo do desktop. Specs e planos em `docs/superpowers/`.
 - **Validado no S20 FE (v0.1.0):** apagar em `Android/media/com.whatsapp` funciona no Android 13 (1,7 GB liberados).
-- **No ar:** APK como artefato `OpenCleaner-apk` de cada run do CI (GitHub Actions).
+- **No ar:** release pública v0.4.0 (pre-release, APK assinado com a chave de debug do CI) → https://github.com/flavioricardo/OpenCleanerForAndroid/releases/tag/v0.4.0. Cada run do CI também gera o artefato `OpenCleaner-apk`.
 
 ## Decisões
 
