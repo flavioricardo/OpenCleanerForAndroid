@@ -645,7 +645,10 @@ internal fun DetailPage(item: Item, onBack: () -> Unit) {
             }
             items(item.files, key = { it.path }) { file ->
                 // Each stat goes through FUSE: keep it off the main thread.
-                val bytes by produceState(0L, file) { value = withContext(Dispatchers.IO) { file.length() } }
+                val bytes by produceState(0L, file) {
+                    val length = withContext(Dispatchers.IO) { file.length() }
+                    value = length
+                }
                 val keep = file !in item.excluded
                 fun toggle(on: Boolean) {
                     // A tap can come before the size loads: then stat it now, once.
