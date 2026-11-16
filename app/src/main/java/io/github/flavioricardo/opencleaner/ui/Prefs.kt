@@ -98,8 +98,12 @@ internal class Prefs(ctx: Context) {
     }
 
     companion object {
-        // Apps are chosen one by one, and personal videos always start unchecked (spec).
-        private val NOT_REMEMBERED = setOf(Kind.UNUSED_APP, Kind.LARGE_VIDEOS)
+        // Apps are chosen one by one; personal media and the trash always start unchecked (spec).
+        private val NOT_REMEMBERED = setOf(
+            Kind.UNUSED_APP, Kind.LARGE_VIDEOS, Kind.TRASH,
+            Kind.WA_OLD_VIDEOS, Kind.WA_OLD_IMAGES, Kind.WA_OLD_AUDIO, Kind.WA_OLD_DOCS,
+            Kind.OLD_DOWNLOADS, Kind.OLD_SCREENSHOTS, Kind.OLD_RECORDINGS,
+        )
 
         val VIDEO_MB = listOf(100, 250, 500, 1000)
         val UNUSED_DAYS = listOf(30, 60, 90, 180)
