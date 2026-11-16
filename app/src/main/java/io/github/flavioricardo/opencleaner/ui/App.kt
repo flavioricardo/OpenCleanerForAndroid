@@ -194,9 +194,7 @@ fun App(resumeTick: Int) {
                         it.status = if (needsFiles || needsUsage) Status.WARN else Status.DONE
                     }
                     val items = findings.map(::Item).onEach { item ->
-                        if (item.checkable && item.f.kind != Kind.UNUSED_APP) {
-                            prefs.rememberedChoice(item.f.kind)?.let { item.checked = it }
-                        }
+                        if (item.checkable) prefs.rememberedChoice(item.f.kind)?.let { item.checked = it }
                     }
                     Analysis(items, apps.orEmpty().associateBy { it.pkg }, SystemClock.elapsedRealtime() - start, options)
                 }
@@ -218,6 +216,11 @@ fun App(resumeTick: Int) {
         val selected = analysis?.checkable.orEmpty().filter { it.selected }
         if (selected.isEmpty() || steps != null) return
         prefs.rememberChoices(analysis?.items.orEmpty())
+        // A folder protected after the analysis must hold too: check again right before deleting.
+        val guard = prefs.scanOptions().protectedDirs
+        fun guarded(f: File) = guard.any {
+            f.path == it.path || f.path.startsWith(it.path + File.separator) || it.path.startsWith(f.path + File.separator)
+        }
         // Files first, then the system dialogs, so the long part runs without waiting on the user.
         val list = (selected.filterNot { it.isSystemDialog } + selected.filter { it.isSystemDialog }).map(::Step)
         steps = list
@@ -236,7 +239,7 @@ fun App(resumeTick: Int) {
                 step.status = Status.RUNNING
                 when (val action = item.f.action) {
                     is Action.DeleteFiles -> {
-                        val files = item.files.filter { it !in item.excluded }
+                        val files = item.files.filter { it !in item.excluded && !guarded(it) }
                         step.total = files.size
                         step.bytes = withContext(Dispatchers.IO) {
                             deleteFiles(files, shouldStop = { stopRequested }) { step.done = it }
@@ -287,7 +290,10 @@ fun App(resumeTick: Int) {
 
     fun resetSelection() {
         prefs.forgetChoices()
-        analysis?.items?.forEach { it.checked = it.f.checked }
+        analysis?.items?.forEach {
+            it.checked = it.f.checked
+            it.excluded.clear()
+        }
     }
 
     fun closeReport() {
@@ -330,7 +336,8 @@ fun App(resumeTick: Int) {
         if (confirming && current != null) {
             ConfirmDialog(current, onConfirm = ::clean, onDismiss = { confirming = false })
         }
-        CompositionLocalProvider(LocalScanOptions provides (current?.options ?: prefs.scanOptions())) {
+        val liveOptions = remember(prefs.videoMb, prefs.unusedDays, prefs.protectedDirs) { prefs.scanOptions() }
+        CompositionLocalProvider(LocalScanOptions provides (current?.options ?: liveOptions)) {
         Box(Modifier.padding(pad).fillMaxSize()) {
             when {
                 !skipWelcome && (!filesOk || !usageOk) -> Welcome(

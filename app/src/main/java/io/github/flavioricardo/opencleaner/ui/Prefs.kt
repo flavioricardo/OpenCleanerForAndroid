@@ -64,13 +64,12 @@ internal class Prefs(ctx: Context) {
 
     /** The checkbox the user left on this kind the last time they cleaned, or null. */
     fun rememberedChoice(kind: Kind): Boolean? =
-        if (rememberSelection && sp.contains("sel_$kind")) sp.getBoolean("sel_$kind", false) else null
+        if (rememberSelection && kind !in NOT_REMEMBERED && sp.contains("sel_$kind")) sp.getBoolean("sel_$kind", false) else null
 
     fun rememberChoices(items: List<Item>) {
         if (!rememberSelection) return
         val e = sp.edit()
-        // Apps are chosen one by one, never remembered as a kind.
-        items.filter { it.checkable && it.f.kind != Kind.UNUSED_APP }.forEach { e.putBoolean("sel_${it.f.kind}", it.checked) }
+        items.filter { it.checkable && it.f.kind !in NOT_REMEMBERED }.forEach { e.putBoolean("sel_${it.f.kind}", it.checked) }
         e.apply()
     }
 
@@ -81,6 +80,9 @@ internal class Prefs(ctx: Context) {
     }
 
     companion object {
+        // Apps are chosen one by one, and personal videos always start unchecked (spec).
+        private val NOT_REMEMBERED = setOf(Kind.UNUSED_APP, Kind.LARGE_VIDEOS)
+
         val VIDEO_MB = listOf(100, 250, 500, 1000)
         val UNUSED_DAYS = listOf(30, 60, 90, 180)
     }
