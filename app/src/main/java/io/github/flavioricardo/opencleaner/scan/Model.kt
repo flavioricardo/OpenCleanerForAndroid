@@ -30,6 +30,13 @@ sealed interface Action {
     data class OpenAppSettings(val pkg: String) : Action
 }
 
+/** What the user can tune in Options. Paths in protectedDirs are absolute. */
+data class ScanOptions(
+    val minVideoBytes: Long = 100L * 1024 * 1024,
+    val unusedDays: Int = 30,
+    val protectedDirs: List<File> = emptyList(),
+)
+
 /** Steps of an analysis, in the order they run. APPS is loaded by the UI before analyze(). */
 enum class Phase { APPS, FILES, WHATSAPP, DUPLICATES }
 
