@@ -40,7 +40,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.produceState
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -645,10 +647,8 @@ internal fun DetailPage(item: Item, onBack: () -> Unit) {
             }
             items(item.files, key = { it.path }) { file ->
                 // Each stat goes through FUSE: keep it off the main thread.
-                val bytes by produceState(0L, file) {
-                    val length = withContext(Dispatchers.IO) { file.length() }
-                    value = length
-                }
+                var bytes by remember(file) { mutableLongStateOf(0L) }
+                LaunchedEffect(file) { bytes = withContext(Dispatchers.IO) { file.length() } }
                 val keep = file !in item.excluded
                 fun toggle(on: Boolean) {
                     // A tap can come before the size loads: then stat it now, once.
