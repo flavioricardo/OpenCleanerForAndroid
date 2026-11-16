@@ -70,4 +70,13 @@ class JunkTest {
         deleteFiles(files) { seen += it }
         assertEquals(listOf(1, 2, 3), seen)
     }
+
+    @Test fun deleteFiles_stopsWhenAsked() {
+        val files = (1..3).map { tmp.root.put("y/$it.txt", "x") }
+        var seen = 0
+        deleteFiles(files, shouldStop = { seen >= 1 }) { seen = it }
+        assertEquals(1, seen)
+        assertFalse(files[0].exists())
+        assertTrue(files[1].exists() && files[2].exists())
+    }
 }

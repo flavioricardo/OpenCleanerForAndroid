@@ -36,8 +36,8 @@ import io.github.flavioricardo.opencleaner.system.appSettingsIntent
 
 /** Analysis or cleaning in progress: one line per step. */
 @Composable
-internal fun StepsPage(steps: List<Step>, cleaning: Boolean) {
-    val finished = steps.count { it.status == Status.DONE || it.status == Status.WARN }
+internal fun StepsPage(steps: List<Step>, cleaning: Boolean, stopping: Boolean, onCancel: () -> Unit) {
+    val finished = steps.count { it.status != Status.PENDING && it.status != Status.RUNNING }
     val current = steps.firstOrNull { it.status == Status.RUNNING }
     val partial = current?.takeIf { it.total > 0 }?.let { it.done.toFloat() / it.total } ?: 0f
     LazyColumn(
@@ -65,6 +65,22 @@ internal fun StepsPage(steps: List<Step>, cleaning: Boolean) {
                 }
             }
         }
+        item {
+            // Analysis only reads, so it stops at once. Cleaning stops before the next file:
+            // what is already deleted stays deleted, and a system dialog still waits for an answer.
+            OutlinedButton(onClick = onCancel, enabled = !stopping, modifier = Modifier.fillMaxWidth()) {
+                Text(
+                    stringResource(
+                        when {
+                            !cleaning -> R.string.cancel_analysis
+                            stopping -> R.string.stopping
+                            else -> R.string.stop_cleaning
+                        },
+                    ),
+                )
+            }
+            if (cleaning) Muted(stringResource(R.string.stop_hint), Modifier.padding(top = 6.dp))
+        }
     }
 }
 
@@ -76,18 +92,19 @@ private fun StepRow(step: Step) {
             Status.RUNNING -> CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.5.dp)
             Status.DONE -> Icon(Lucide.CircleCheck, null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
             Status.WARN -> Icon(Lucide.TriangleAlert, null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.tertiary)
+            Status.SKIPPED -> Icon(Lucide.Circle, null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
             Text(
                 stepLabel(step),
                 style = MaterialTheme.typography.bodyLarge,
-                color = if (step.status == Status.PENDING) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
+                color = if (step.status == Status.PENDING || step.status == Status.SKIPPED) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
                 fontWeight = if (step.status == Status.RUNNING) FontWeight.SemiBold else FontWeight.Normal,
             )
             stepDetail(step)?.let { Muted(it) }
         }
-        if (step.bytes >= 0 && step.status != Status.PENDING && step.status != Status.RUNNING) {
+        if (step.bytes >= 0 && (step.status == Status.DONE || step.status == Status.WARN)) {
             Spacer(Modifier.width(8.dp))
             Text(size(step.bytes), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
         }
@@ -112,7 +129,7 @@ private fun stepLabel(step: Step): String = when (val key = step.key) {
 private fun stepDetail(step: Step): String? {
     val key = step.key
     if (key is Phase) return when (step.status) {
-        Status.PENDING -> null
+        Status.PENDING, Status.SKIPPED -> null
         Status.WARN -> stringResource(R.string.step_no_permission)
         Status.RUNNING -> when (key) {
             Phase.APPS -> if (step.total > 0) stringResource(R.string.step_apps_running, step.done, step.total) else null
@@ -134,13 +151,17 @@ private fun stepDetail(step: Step): String? {
         Status.RUNNING -> if (item.isSystemDialog) stringResource(R.string.step_waiting_confirm)
         else stringResource(R.string.step_deleting, step.done, step.total)
         Status.DONE -> when {
+            item.f.action is Action.ClearAllCache && step.bytes == 0L -> stringResource(R.string.step_cache_empty)
             item.isSystemDialog -> null
             item.f.kind == Kind.EMPTY_DIRS -> pluralStringResource(R.plurals.folders, step.total, step.total)
             else -> pluralStringResource(R.plurals.files, step.total, step.total)
         }
-        Status.WARN -> stringResource(
-            if (item.f.action is Action.Uninstall) R.string.step_not_uninstalled else R.string.step_cache_not_freed,
-        )
+        Status.WARN -> when (item.f.action) {
+            is Action.Uninstall -> stringResource(R.string.step_not_uninstalled)
+            is Action.DeleteFiles -> stringResource(R.string.step_stopped_at, step.done, step.total)
+            else -> stringResource(R.string.step_cache_not_freed)
+        }
+        Status.SKIPPED -> stringResource(R.string.step_skipped)
     }
 }
 
@@ -159,7 +180,7 @@ internal fun ResultPage(
     ) {
         item {
             PageTitle(
-                stringResource(R.string.result_title),
+                stringResource(if (report.stopped) R.string.result_title_stopped else R.string.result_title),
                 stringResource(R.string.result_subtitle, report.millis / 1000.0),
             )
         }
@@ -184,7 +205,7 @@ internal fun ResultPage(
                 SectionHeader(Lucide.Info, stringResource(R.string.only_you), stringResource(R.string.only_you_sub))
                 manual.forEach {
                     HorizontalDivider(Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.outlineVariant)
-                    ManualRow(it) { pkg -> ctx.open(appSettingsIntent(pkg)) }
+                    ManualRow(it, stringResource(R.string.manual_data, size(it.f.bytes))) { pkg -> ctx.open(appSettingsIntent(pkg)) }
                 }
             }
         }

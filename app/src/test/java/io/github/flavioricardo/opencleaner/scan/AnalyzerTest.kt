@@ -17,7 +17,7 @@ class AnalyzerTest {
     private val wa = "Android/media/com.whatsapp/WhatsApp"
 
     private fun app(pkg: String, lastUsed: Long = now, installed: Long = 0, system: Boolean = false, data: Long = 10) =
-        AppInfo(pkg, pkg, appBytes = 10, dataBytes = data, cacheBytes = 5, lastUsed = lastUsed, installed = installed, system = system)
+        AppInfo(pkg, pkg, appBytes = 10, dataBytes = data, cacheBytes = 5, externalCacheBytes = 5, lastUsed = lastUsed, installed = installed, system = system)
 
     private fun List<Finding>.of(kind: Kind) = singleOrNull { it.kind == kind }
     private fun Finding.files() = (action as Action.DeleteFiles).files
@@ -125,7 +125,7 @@ class AnalyzerTest {
     }
 
     @Test fun zeroByteItems_hidden() {
-        val kinds = analyze(tmp.root, listOf(app("com.x").copy(cacheBytes = 0)), now).map { it.kind }
+        val kinds = analyze(tmp.root, listOf(app("com.x").copy(cacheBytes = 0, externalCacheBytes = 0)), now).map { it.kind }
         assertFalse(Kind.CACHE in kinds)
         assertFalse(Kind.APKS in kinds)
     }
@@ -142,5 +142,20 @@ class AnalyzerTest {
         val last = reports.last { it.first == Phase.DUPLICATES }
         assertEquals(4, last.second)
         assertEquals(4, last.third)
+    }
+
+    // The system dialog only clears external caches; internal cache is per app, in its settings.
+    @Test fun cache_splitsExternalAndInternal() {
+        val mb = 1024L * 1024
+        val big = app("com.big").copy(cacheBytes = 500 * mb, externalCacheBytes = 100 * mb)
+        val small = app("com.small").copy(cacheBytes = 60 * mb, externalCacheBytes = 10 * mb)
+        val result = analyze(tmp.root, listOf(big, small), now)
+
+        assertEquals(110 * mb, result.of(Kind.CACHE)!!.bytes)
+        val perApp = result.filter { it.kind == Kind.APP_CACHE }
+        assertEquals(listOf("com.big"), perApp.map { it.label })
+        assertEquals(400 * mb, perApp.single().bytes)
+        assertFalse(perApp.single().checked)
+        assertEquals(Action.OpenAppSettings("com.big"), perApp.single().action)
     }
 }

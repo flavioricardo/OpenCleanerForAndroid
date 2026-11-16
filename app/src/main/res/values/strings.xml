@@ -37,10 +37,6 @@
     <string name="area_whatsapp">WhatsApp</string>
     <string name="area_whatsapp_sub">duplicates, backups and statuses</string>
     <string name="area_cache">App cache</string>
-    <plurals name="of_apps">
-        <item quantity="one">in %d app</item>
-        <item quantity="other">in %d apps</item>
-    </plurals>
     <string name="area_unused">Unused apps</string>
     <string name="area_unused_sub">%1$s not opened in 30+ days</string>
     <string name="area_files">Files</string>
@@ -56,7 +52,7 @@
     <string name="group_system">System and apps</string>
     <string name="group_files">Files</string>
     <string name="nothing">Nothing to clean right now.</string>
-    <string name="selection_items">%1$d of %2$d items selected</string>
+    <string name="selection_items">Cleanup: %1$d of %2$d · Apps: %3$d of %4$d</string>
     <string name="selection_bytes">%1$s of %2$s</string>
 
     <string name="apps_title">Apps</string>
@@ -135,13 +131,26 @@
     <string name="wa_duplicates_warning">one copy stays on the phone; the chat shows that media as unavailable</string>
     <string name="hint_backups">the current backup stays</string>
     <string name="hint_statuses">statuses you already watched</string>
-    <string name="hint_cache">apps rebuild it; Android asks you to confirm</string>
+    <string name="hint_cache">external caches only; Android asks you to confirm</string>
     <string name="hint_apks">installers already used</string>
     <string name="hint_thumbnails">the gallery rebuilds them when needed</string>
     <string name="hint_duplicates">one copy stays</string>
     <string name="hint_videos">personal: check before cleaning</string>
     <string name="hint_uninstall">Android asks you to confirm each app.</string>
 
+    <string name="area_cache_sub">%1$s here; the rest, app by app</string>
+    <string name="area_cache_sub_only">%1$s you can clear here</string>
+    <string name="app_cache_title">Cache only the app can clear</string>
+    <string name="app_cache_sub">Android lets no other app clear this. Open, go to Storage and tap Clear cache: your data stays.</string>
+    <string name="app_cache_amount">%1$s of cache</string>
+    <string name="cancel_analysis">Cancel analysis</string>
+    <string name="stop_cleaning">Stop cleaning</string>
+    <string name="stopping">Stopping…</string>
+    <string name="stop_hint">Stops before the next file. What is already deleted stays deleted.</string>
+    <string name="step_stopped_at">stopped at %1$d of %2$d</string>
+    <string name="step_skipped">not done: you stopped the cleanup</string>
+    <string name="step_cache_empty">Android cleared it; the external caches were already empty</string>
+    <string name="result_title_stopped">Cleanup stopped</string>
     <plurals name="files">
         <item quantity="one">%d file</item>
         <item quantity="other">%d files</item>

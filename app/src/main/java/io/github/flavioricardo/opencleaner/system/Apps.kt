@@ -7,6 +7,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Process
 import android.os.storage.StorageManager
 import android.provider.Settings
@@ -47,6 +48,8 @@ fun loadApps(ctx: Context, onApp: (Int, Int) -> Unit = { _, _ -> }): List<AppInf
                 appBytes = s.appBytes,
                 dataBytes = s.dataBytes,
                 cacheBytes = s.cacheBytes,
+                // Android 11 cannot tell external cache apart: assume all of it, as before.
+                externalCacheBytes = if (Build.VERSION.SDK_INT >= 31) s.externalCacheBytes else s.cacheBytes,
                 lastUsed = lastUsed[info.packageName]?.lastTimeUsed ?: 0L,
                 installed = info.firstInstallTime,
                 system = app.flags and ApplicationInfo.FLAG_SYSTEM != 0,

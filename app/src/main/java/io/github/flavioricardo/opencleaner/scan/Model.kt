@@ -11,7 +11,10 @@ data class AppInfo(
     val appBytes: Long,
     /** Includes the cache, as StorageStats.getDataBytes() does. */
     val dataBytes: Long,
+    /** Internal plus external cache. */
     val cacheBytes: Long,
+    /** The part of cacheBytes the system "clear cache" dialog can remove (Android/data/<pkg>/cache). */
+    val externalCacheBytes: Long,
     val lastUsed: Long,
     val installed: Long,
     val system: Boolean,
@@ -32,10 +35,10 @@ enum class Phase { APPS, FILES, WHATSAPP, DUPLICATES }
 
 enum class Kind {
     WA_DUPLICATES, WA_BACKUPS, WA_STATUSES, CACHE, APKS, THUMBNAILS, EMPTY_DIRS,
-    DUPLICATES, LARGE_VIDEOS, UNUSED_APP, MANUAL_APP, NEEDS_FILES_ACCESS, NEEDS_USAGE_ACCESS,
+    DUPLICATES, LARGE_VIDEOS, UNUSED_APP, MANUAL_APP, APP_CACHE, NEEDS_FILES_ACCESS, NEEDS_USAGE_ACCESS,
 }
 
-/** label is the app name for UNUSED_APP and MANUAL_APP. */
+/** label is the app name for UNUSED_APP, MANUAL_APP and APP_CACHE. */
 data class Finding(
     val kind: Kind,
     val label: String?,
