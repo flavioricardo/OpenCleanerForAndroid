@@ -43,6 +43,23 @@ internal class Prefs(ctx: Context) {
             sp.edit().putInt("unused_days", v).apply()
         }
 
+    private val oldState = mutableStateOf(sp.getInt("old_months", 6))
+    var oldMonths: Int
+        get() = oldState.value
+        set(v) {
+            oldState.value = v
+            sp.edit().putInt("old_months", v).apply()
+        }
+
+    // Off by default: trashed media still takes space until the trash empties (30 days).
+    private val trashState = mutableStateOf(sp.getBoolean("use_trash", false))
+    var useTrash: Boolean
+        get() = trashState.value
+        set(v) {
+            trashState.value = v
+            sp.edit().putBoolean("use_trash", v).apply()
+        }
+
     /** Paths relative to shared storage, like "DCIM/Camera". */
     private val protectedState = mutableStateOf(sp.getStringSet("protected", emptySet())!!.sorted())
     val protectedDirs: List<String> get() = protectedState.value
@@ -59,6 +76,7 @@ internal class Prefs(ctx: Context) {
     fun scanOptions() = ScanOptions(
         minVideoBytes = videoMb * 1024L * 1024,
         unusedDays = unusedDays,
+        oldMonths = oldMonths,
         protectedDirs = protectedDirs.map { File(Environment.getExternalStorageDirectory(), it) },
     )
 
@@ -85,5 +103,6 @@ internal class Prefs(ctx: Context) {
 
         val VIDEO_MB = listOf(100, 250, 500, 1000)
         val UNUSED_DAYS = listOf(30, 60, 90, 180)
+        val OLD_MONTHS = listOf(3, 6, 12)
     }
 }

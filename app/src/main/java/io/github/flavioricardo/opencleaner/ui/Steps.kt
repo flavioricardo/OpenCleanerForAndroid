@@ -122,6 +122,7 @@ private fun stepLabel(step: Step): String = when (val key = step.key) {
         },
     )
     is Item -> title(key.f)
+    TrashMove -> stringResource(R.string.step_trash)
     else -> ""
 }
 
@@ -145,6 +146,14 @@ private fun stepDetail(step: Step): String? {
             Phase.DUPLICATES -> pluralStringResource(R.plurals.files_compared, step.total, step.total)
         }
     }
+    if (key == TrashMove) return when (step.status) {
+        Status.PENDING -> stringResource(R.string.step_android_asks)
+        Status.RUNNING -> stringResource(R.string.step_waiting_confirm)
+        Status.DONE -> if (step.total == 0) stringResource(R.string.step_trash_none)
+        else pluralStringResource(R.plurals.trash_done, step.done, step.done)
+        Status.WARN -> stringResource(R.string.step_trash_cancelled)
+        Status.SKIPPED -> stringResource(R.string.step_skipped)
+    }
     val item = key as Item
     return when (step.status) {
         Status.PENDING -> if (item.isSystemDialog) stringResource(R.string.step_android_asks) else countText(item).ifEmpty { null }
@@ -154,6 +163,8 @@ private fun stepDetail(step: Step): String? {
             item.f.action is Action.ClearAllCache && step.bytes == 0L -> stringResource(R.string.step_cache_empty)
             item.isSystemDialog -> null
             item.f.kind == Kind.EMPTY_DIRS -> pluralStringResource(R.plurals.folders, step.total, step.total)
+            step.toTrash > 0 -> pluralStringResource(R.plurals.files, step.total, step.total) + " · " +
+                stringResource(R.string.step_to_trash, step.toTrash)
             else -> pluralStringResource(R.plurals.files, step.total, step.total)
         }
         Status.WARN -> when (item.f.action) {

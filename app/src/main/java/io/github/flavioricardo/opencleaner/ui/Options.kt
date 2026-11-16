@@ -97,6 +97,17 @@ internal fun OptionsPage(prefs: Prefs, filesOk: Boolean, usageOk: Boolean, onRes
                     { pluralStringResource(R.plurals.days, it, it) },
                 ) { prefs.unusedDays = it }
                 Divider()
+                ChoiceRow(
+                    stringResource(R.string.opt_old),
+                    prefs.oldMonths,
+                    Prefs.OLD_MONTHS,
+                    { pluralStringResource(R.plurals.months, it, it) },
+                ) { prefs.oldMonths = it }
+                Divider()
+                SwitchRow(stringResource(R.string.opt_trash), stringResource(R.string.opt_trash_sub), prefs.useTrash) {
+                    prefs.useTrash = it
+                }
+                Divider()
                 TextButton(onClick = {
                     onResetSelection()
                     Toast.makeText(ctx, restored, Toast.LENGTH_SHORT).show()

@@ -62,7 +62,11 @@ import androidx.compose.ui.unit.dp
 import io.github.flavioricardo.opencleaner.R
 import io.github.flavioricardo.opencleaner.scan.Action
 import io.github.flavioricardo.opencleaner.scan.Finding
+import io.github.flavioricardo.opencleaner.scan.DirNode
 import io.github.flavioricardo.opencleaner.scan.Kind
+import io.github.flavioricardo.opencleaner.scan.Sensitive
+import io.github.flavioricardo.opencleaner.scan.whatsAppMediaKind
+import java.io.File
 import io.github.flavioricardo.opencleaner.system.allFilesIntent
 import io.github.flavioricardo.opencleaner.system.appSettingsIntent
 import io.github.flavioricardo.opencleaner.system.usageIntent
@@ -175,6 +179,14 @@ internal fun title(f: Finding, short: Boolean = false): String = when (f.kind) {
     Kind.WA_DUPLICATES -> stringResource(if (short) R.string.s_wa_duplicates else R.string.k_wa_duplicates)
     Kind.WA_BACKUPS -> stringResource(if (short) R.string.s_wa_backups else R.string.k_wa_backups)
     Kind.WA_STATUSES -> stringResource(if (short) R.string.s_wa_statuses else R.string.k_wa_statuses)
+    Kind.WA_OLD_VIDEOS -> stringResource(if (short) R.string.s_wa_old_videos else R.string.k_wa_old_videos, months())
+    Kind.WA_OLD_IMAGES -> stringResource(if (short) R.string.s_wa_old_images else R.string.k_wa_old_images, months())
+    Kind.WA_OLD_AUDIO -> stringResource(if (short) R.string.s_wa_old_audio else R.string.k_wa_old_audio, months())
+    Kind.WA_OLD_DOCS -> stringResource(if (short) R.string.s_wa_old_docs else R.string.k_wa_old_docs, months())
+    Kind.OLD_DOWNLOADS -> stringResource(R.string.k_old_downloads, months())
+    Kind.OLD_SCREENSHOTS -> stringResource(R.string.k_old_screenshots, months())
+    Kind.OLD_RECORDINGS -> stringResource(R.string.k_old_recordings, months())
+    Kind.TRASH -> stringResource(R.string.k_trash)
     Kind.CACHE -> stringResource(R.string.k_cache)
     Kind.APKS -> stringResource(R.string.k_apks)
     Kind.THUMBNAILS -> stringResource(R.string.k_thumbnails)
@@ -182,13 +194,19 @@ internal fun title(f: Finding, short: Boolean = false): String = when (f.kind) {
     Kind.DUPLICATES -> stringResource(R.string.k_duplicates)
     Kind.LARGE_VIDEOS -> stringResource(R.string.k_large_videos, size(LocalScanOptions.current.minVideoBytes))
     Kind.UNUSED_APP -> if (short) f.label.orEmpty() else stringResource(R.string.k_unused_app, f.label.orEmpty())
-    Kind.MANUAL_APP, Kind.APP_CACHE -> f.label.orEmpty()
+    Kind.MANUAL_APP, Kind.APP_CACHE, Kind.PRIVACY_APP -> f.label.orEmpty()
     Kind.NEEDS_FILES_ACCESS -> stringResource(R.string.k_needs_files)
     Kind.NEEDS_USAGE_ACCESS -> stringResource(R.string.k_needs_usage)
 }
 
 @Composable
+private fun months() = LocalScanOptions.current.oldMonths
+
+@Composable
 internal fun hint(kind: Kind): String? = when (kind) {
+    Kind.WA_OLD_VIDEOS, Kind.WA_OLD_IMAGES, Kind.WA_OLD_AUDIO, Kind.WA_OLD_DOCS -> stringResource(R.string.hint_wa_old)
+    Kind.OLD_DOWNLOADS, Kind.OLD_SCREENSHOTS, Kind.OLD_RECORDINGS -> stringResource(R.string.hint_videos)
+    Kind.TRASH -> stringResource(R.string.hint_trash)
     Kind.WA_DUPLICATES -> stringResource(R.string.wa_duplicates_warning)
     Kind.WA_BACKUPS -> stringResource(R.string.hint_backups)
     Kind.WA_STATUSES -> stringResource(R.string.hint_statuses)
@@ -205,6 +223,13 @@ internal fun kindIcon(kind: Kind): ImageVector = when (kind) {
     Kind.WA_DUPLICATES, Kind.DUPLICATES -> Lucide.Copy
     Kind.WA_BACKUPS -> Lucide.Archive
     Kind.WA_STATUSES -> Lucide.Eye
+    Kind.WA_OLD_VIDEOS, Kind.OLD_RECORDINGS -> Lucide.Film
+    Kind.WA_OLD_IMAGES, Kind.OLD_SCREENSHOTS -> Lucide.Image
+    Kind.WA_OLD_AUDIO -> Lucide.Mic
+    Kind.WA_OLD_DOCS -> Lucide.FileText
+    Kind.OLD_DOWNLOADS -> Lucide.Download
+    Kind.TRASH -> Lucide.Trash2
+    Kind.PRIVACY_APP -> Lucide.Shield
     Kind.CACHE -> Lucide.Database
     Kind.APKS -> Lucide.Download
     Kind.THUMBNAILS -> Lucide.Image
@@ -268,11 +293,12 @@ internal fun HealthPage(
     onAnalyze: () -> Unit,
     onClean: () -> Unit,
     onTab: (Tab) -> Unit,
+    onStorage: () -> Unit,
 ) {
     Page {
         item { Logo() }
         item { PageTitle(stringResource(R.string.health_title), stringResource(R.string.health_subtitle)) }
-        item { StoragePanel(usage, analysis, onAnalyze, onClean) }
+        item { StoragePanel(usage, analysis, onAnalyze, onClean, onStorage) }
         if (error != null) item {
             Panel { Text(stringResource(R.string.error, error), color = MaterialTheme.colorScheme.error) }
         }
@@ -294,7 +320,13 @@ internal fun HealthPage(
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun StoragePanel(usage: Pair<Long, Long>, analysis: Analysis?, onAnalyze: () -> Unit, onClean: () -> Unit) {
+private fun StoragePanel(
+    usage: Pair<Long, Long>,
+    analysis: Analysis?,
+    onAnalyze: () -> Unit,
+    onClean: () -> Unit,
+    onStorage: () -> Unit,
+) {
     val (used, total) = usage
     val selected = minOf(analysis?.selectedBytes ?: 0L, used)
     val usedColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.78f)
@@ -358,12 +390,19 @@ private fun StoragePanel(usage: Pair<Long, Long>, analysis: Analysis?, onAnalyze
                     Icon(Lucide.RefreshCw, stringResource(R.string.analyze_again), Modifier.size(18.dp))
                 }
             }
+            if (analysis.tree != null) {
+                TextButton(onClick = onStorage) {
+                    Icon(Lucide.HardDrive, null, Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(stringResource(R.string.storage_more))
+                }
+            }
         }
     }
 }
 
 @Composable
-private fun Legend(color: Color, label: String, value: String) {
+internal fun Legend(color: Color, label: String, value: String) {
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         Box(Modifier.size(10.dp).clip(RoundedCornerShape(2.dp)).background(color))
         Muted(label)
@@ -409,7 +448,7 @@ private fun AreaGrid(a: Analysis, filesOk: Boolean, usageOk: Boolean, onTab: (Ta
             ) { onTab(Tab.APPS) }
             AreaCard(
                 Lucide.FolderOpen, stringResource(R.string.area_files),
-                if (filesOk) size(a.of(FILE_KINDS).sumOf { it.bytes }) else "—",
+                if (filesOk) size(a.of(FILE_KINDS + OLD_KINDS).sumOf { it.bytes }) else "—",
                 if (filesOk) stringResource(R.string.area_files_sub) else needsFiles,
                 Modifier.weight(1f),
             ) { onTab(Tab.CLEAN) }
@@ -459,6 +498,7 @@ internal fun CleanPage(analysis: Analysis?, onAnalyze: () -> Unit, onOpen: (Item
             Triple(Lucide.MessageCircle, R.string.group_whatsapp, WHATSAPP_KINDS),
             Triple(Lucide.Smartphone, R.string.group_system, SYSTEM_KINDS),
             Triple(Lucide.FolderOpen, R.string.group_files, FILE_KINDS),
+            Triple(Lucide.Clock, R.string.group_old, OLD_KINDS),
         )
         for ((icon, label, kinds) in groups) {
             val list = analysis.of(kinds)
@@ -470,6 +510,7 @@ internal fun CleanPage(analysis: Analysis?, onAnalyze: () -> Unit, onOpen: (Item
                         Text(stringResource(label), Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
                         Muted(size(list.sumOf { it.bytes }))
                     }
+                    if (kinds == WHATSAPP_KINDS) analysis.tree?.let { WhatsAppStrip(it) }
                     list.forEach {
                         HorizontalDivider(Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.outlineVariant)
                         ItemRow(it, onOpen)
@@ -477,7 +518,7 @@ internal fun CleanPage(analysis: Analysis?, onAnalyze: () -> Unit, onOpen: (Item
                 }
             }
         }
-        if (analysis.of(WHATSAPP_KINDS + SYSTEM_KINDS + FILE_KINDS).isEmpty()) {
+        if (analysis.of(WHATSAPP_KINDS + SYSTEM_KINDS + FILE_KINDS + OLD_KINDS).isEmpty()) {
             item { Panel { Text(stringResource(R.string.nothing)) } }
         }
     }
@@ -580,6 +621,7 @@ internal fun AppsPage(analysis: Analysis?, onAnalyze: () -> Unit) {
                 }
             }
         }
+        item { PrivacyPanel(analysis) }
         val perAppCache = analysis.items.filter { it.f.kind == Kind.APP_CACHE }
         if (perAppCache.isNotEmpty()) item {
             Panel {
@@ -758,4 +800,94 @@ private fun PermissionPanel(icon: ImageVector, title: String, text: String, gran
             }
         }
     }
+}
+
+/** How WhatsApp media splits by type, from the folder sizes: what the 33 GB really are. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun WhatsAppStrip(tree: DirNode) {
+    val parts = remember(tree) {
+        val sums = LinkedHashMap<Kind?, Long>()
+        WA_MEDIA_TYPES.forEach { sums[it] = 0L }
+        for (root in WA_MEDIA_DIRS) {
+            val media = tree.find(File(tree.file, root)) ?: continue
+            for (child in media.children) {
+                val kind = whatsAppMediaKind(child.file.name)
+                sums[kind] = (sums[kind] ?: 0L) + child.bytes
+            }
+        }
+        sums.filterValues { it > 0 }.toList()
+    }
+    if (parts.isEmpty()) return
+    val colors = stripColors()
+    Spacer(Modifier.height(8.dp))
+    Muted(stringResource(R.string.wa_media_total, size(parts.sumOf { it.second })))
+    Spacer(Modifier.height(6.dp))
+    SizeStrip(parts.map { it.second })
+    Spacer(Modifier.height(6.dp))
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        parts.forEachIndexed { i, (kind, bytes) ->
+            Legend(colors.getOrElse(i) { MaterialTheme.colorScheme.outlineVariant }, stringResource(mediaLabel(kind)), size(bytes))
+        }
+    }
+}
+
+private val WA_MEDIA_DIRS = listOf(
+    "Android/media/com.whatsapp/WhatsApp/Media",
+    "Android/media/com.whatsapp.w4b/WhatsApp Business/Media",
+)
+
+// Strip order; null is everything else (stickers, GIFs, statuses...).
+private val WA_MEDIA_TYPES = listOf(Kind.WA_OLD_VIDEOS, Kind.WA_OLD_IMAGES, Kind.WA_OLD_AUDIO, Kind.WA_OLD_DOCS, null)
+
+private fun mediaLabel(kind: Kind?): Int = when (kind) {
+    Kind.WA_OLD_VIDEOS -> R.string.wa_videos
+    Kind.WA_OLD_IMAGES -> R.string.wa_images
+    Kind.WA_OLD_AUDIO -> R.string.wa_audio
+    Kind.WA_OLD_DOCS -> R.string.wa_docs
+    else -> R.string.wa_other
+}
+
+/** Apps you installed that can use location all the time, the camera or the microphone. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun PrivacyPanel(a: Analysis) {
+    val ctx = LocalContext.current
+    val apps = a.items.filter { it.f.kind == Kind.PRIVACY_APP }
+    Panel {
+        SectionHeader(Lucide.Shield, stringResource(R.string.privacy_title), stringResource(R.string.privacy_sub))
+        if (apps.isEmpty()) Muted(stringResource(R.string.privacy_none), Modifier.padding(top = 8.dp))
+        apps.forEach { item ->
+            val pkg = (item.f.action as Action.OpenAppSettings).pkg
+            HorizontalDivider(Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.outlineVariant)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                AppIcon(pkg)
+                Spacer(Modifier.width(10.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(item.f.label.orEmpty(), style = MaterialTheme.typography.bodyLarge)
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        a.apps[pkg]?.sensitive.orEmpty().sortedBy { it.ordinal }.forEach { Chip(stringResource(sensitiveLabel(it))) }
+                    }
+                }
+                TextButton(onClick = { ctx.open(appSettingsIntent(pkg)) }) { Text(stringResource(R.string.open)) }
+            }
+        }
+    }
+}
+
+private fun sensitiveLabel(s: Sensitive): Int = when (s) {
+    Sensitive.BACKGROUND_LOCATION -> R.string.sens_location
+    Sensitive.CAMERA -> R.string.sens_camera
+    Sensitive.MICROPHONE -> R.string.sens_mic
+}
+
+@Composable
+private fun Chip(text: String) {
+    Text(
+        text,
+        Modifier.clip(RoundedCornerShape(8.dp)).background(MaterialTheme.colorScheme.tertiary.copy(alpha = 0.14f))
+            .padding(horizontal = 8.dp, vertical = 2.dp),
+        style = MaterialTheme.typography.labelSmall,
+        color = MaterialTheme.colorScheme.tertiary,
+    )
 }
