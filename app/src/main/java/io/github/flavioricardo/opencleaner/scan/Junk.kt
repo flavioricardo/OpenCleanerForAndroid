@@ -11,12 +11,18 @@ private val STANDARD_DIRS = setOf(
 )
 
 /** Every file in shared storage except Android/data and Android/obb (off limits on Android 11+). */
-fun listFilesUnder(storage: File): List<File> {
+fun listFilesUnder(storage: File, onFile: (Int) -> Unit = {}): List<File> {
     val blocked = setOf(File(storage, "Android/data").path, File(storage, "Android/obb").path)
-    return storage.walkTopDown()
+    val out = mutableListOf<File>()
+    storage.walkTopDown()
         .onEnter { it.path !in blocked }
         .filter { it.isFile }
-        .toList()
+        .forEach {
+            out += it
+            if (out.size % 256 == 0) onFile(out.size)
+        }
+    onFile(out.size)
+    return out
 }
 
 fun downloadApks(storage: File): List<File> =

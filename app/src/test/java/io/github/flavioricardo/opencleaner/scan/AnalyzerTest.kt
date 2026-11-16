@@ -129,4 +129,17 @@ class AnalyzerTest {
         assertFalse(Kind.CACHE in kinds)
         assertFalse(Kind.APKS in kinds)
     }
+
+    @Test fun progress_reportsFilesAndDuplicates() {
+        tmp.root.put("DCIM/a.jpg", bytes(200 * 1024))
+        tmp.root.put("Pictures/a.jpg", bytes(200 * 1024))
+        val reports = mutableListOf<Triple<Phase, Int, Int>>()
+        analyze(tmp.root, null, now) { phase, done, total -> reports += Triple(phase, done, total) }
+
+        val phases = reports.map { it.first }.toSet()
+        assertTrue(phases.containsAll(listOf(Phase.FILES, Phase.WHATSAPP, Phase.DUPLICATES)))
+        val last = reports.last { it.first == Phase.DUPLICATES }
+        assertEquals(2, last.second)
+        assertEquals(2, last.third)
+    }
 }

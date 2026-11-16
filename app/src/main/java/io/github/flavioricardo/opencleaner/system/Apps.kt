@@ -14,8 +14,11 @@ import io.github.flavioricardo.opencleaner.scan.AppInfo
 
 private const val YEAR = 365L * 24 * 60 * 60 * 1000
 
-/** Installed apps with their sizes and last use. Null without usage access. Slow: call off the main thread. */
-fun loadApps(ctx: Context): List<AppInfo>? {
+/**
+ * Installed apps with their sizes and last use. Null without usage access. Slow: call off the main
+ * thread. onApp(done, total) follows the packages read.
+ */
+fun loadApps(ctx: Context, onApp: (Int, Int) -> Unit = { _, _ -> }): List<AppInfo>? {
     if (!hasUsage(ctx)) return null
     val pm = ctx.packageManager
     val stats = ctx.getSystemService(StorageStatsManager::class.java)
@@ -32,8 +35,10 @@ fun loadApps(ctx: Context): List<AppInfo>? {
     val keyboard = Settings.Secure.getString(ctx.contentResolver, Settings.Secure.DEFAULT_INPUT_METHOD)
         ?.let { ComponentName.unflattenFromString(it)?.packageName }
 
-    return pm.getInstalledPackages(0).mapNotNull { info ->
-        val app = info.applicationInfo ?: return@mapNotNull null
+    val packages = pm.getInstalledPackages(0)
+    return packages.mapIndexedNotNull { i, info ->
+        onApp(i + 1, packages.size)
+        val app = info.applicationInfo ?: return@mapIndexedNotNull null
         try {
             val s = stats.queryStatsForPackage(StorageManager.UUID_DEFAULT, info.packageName, user)
             AppInfo(

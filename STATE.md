@@ -8,7 +8,8 @@
 
 ## Status
 
-- **Fase:** v1 implementada (spec e plano em `docs/superpowers/`), falta validar no S20 FE.
+- **Fase:** v0.2.0 com a UI v2 no estilo do desktop (abas Saúde/Limpeza/Apps, progresso por etapa, resultado por categoria). Specs e planos em `docs/superpowers/`.
+- **Validado no S20 FE (v0.1.0):** apagar em `Android/media/com.whatsapp` funciona no Android 13 (1,7 GB liberados).
 - **No ar:** APK como artefato `OpenCleaner-apk` de cada run do CI (GitHub Actions).
 
 ## Decisões
@@ -20,6 +21,6 @@
 ## Pendências
 
 <!-- Formato: - [ ] **Ação exata** → link direto | trava: … | [humano] se só o Flávio fecha -->
-- [ ] **Instalar o APK no S20 FE e validar os 3 riscos da spec** (apagar em `Android/media/com.whatsapp`, diálogo de cache no One UI 5.1, quanto do WhatsApp é alcançável) → `docs/superpowers/specs/2026-11-15-opencleaner-android-design.md` | [humano]
+- [ ] **Validar no S20 FE os 2 riscos restantes da spec**: o diálogo de cache no One UI 5.1 (no teste da v0.1.0 ele foi confirmado, mas os 3,0 GB de cache não apareceram no liberado; a v0.2.0 mostra quanto o cache liberou, ou um alerta) e quanto dos 33,5 GB do WhatsApp é alcançável → `docs/superpowers/specs/2026-11-15-opencleaner-android-design.md` | [humano]
 - [ ] **Keystore de release estável**: cada run do CI assina com uma chave de debug diferente, então atualizar exige desinstalar antes. Gerar keystore, guardar em secrets do repo e passar `OC_KEYSTORE*` no CI → https://github.com/flavioricardo/OpenCleanerForAndroid/settings/secrets/actions | [humano]
 - [ ] **Incluir o repo no rollout automático**: PR no `claude-config` acrescentando `flavioricardo/OpenCleanerForAndroid` em `rollout-projects.txt` e dar acesso ao token `ROLLOUT_TOKEN` → https://github.com/settings/tokens?type=beta | [humano] (token)

@@ -63,4 +63,11 @@ class JunkTest {
         assertTrue(late.exists())
         assertTrue(dir.exists())
     }
+
+    @Test fun deleteFiles_reportsEachFile() {
+        val files = (1..3).map { tmp.root.put("x/$it.txt", "x") }
+        val seen = mutableListOf<Int>()
+        deleteFiles(files) { seen += it }
+        assertEquals(listOf(1, 2, 3), seen)
+    }
 }
