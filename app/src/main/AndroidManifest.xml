@@ -23,6 +23,7 @@
         android:theme="@style/Theme.OpenCleaner">
         <activity
             android:name=".MainActivity"
+            android:label="@string/launcher_label"
             android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|uiMode|density"
             android:exported="true">
             <intent-filter>

@@ -1,6 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name" translatable="false">OpenCleaner</string>
+    <!-- Launcher icon label: a zero-width space lets One UI break the line as "Open / Cleaner"
+         instead of hyphenating "Open-Cleaner". Other screens use app_name. -->
+    <string name="launcher_label" translatable="false">Open​Cleaner</string>
 
     <string name="tab_health">Health</string>
     <string name="tab_clean">Cleanup</string>
