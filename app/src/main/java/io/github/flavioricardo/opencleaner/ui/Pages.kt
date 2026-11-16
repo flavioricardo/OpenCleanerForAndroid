@@ -517,7 +517,8 @@ internal fun SelectionBar(a: Analysis, onClean: () -> Unit) {
                     val apps = a.checkable.filter { it.f.kind == Kind.UNUSED_APP }
                     val rest = a.checkable - apps.toSet()
                     Muted(
-                        stringResource(
+                        if (apps.isEmpty()) stringResource(R.string.selection_items_clean, rest.count { it.selected }, rest.size)
+                        else stringResource(
                             R.string.selection_items,
                             rest.count { it.selected }, rest.size, apps.count { it.selected }, apps.size,
                         ),

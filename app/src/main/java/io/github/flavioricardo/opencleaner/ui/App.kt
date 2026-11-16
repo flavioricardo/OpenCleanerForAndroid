@@ -310,7 +310,7 @@ fun App(resumeTick: Int) {
                     // Back does what the button under the steps does.
                     val onCancel = if (cleaning) ({ stopRequested = true }) else ::cancelAnalysis
                     BackHandler(onBack = onCancel)
-                    StepsPage(running, cleaning, stopping = stopRequested, onCancel = onCancel)
+                    StepsPage(running, cleaning, stopping = cleaning && stopRequested, onCancel = onCancel)
                 }
                 finished != null -> {
                     BackHandler(onBack = ::closeReport)

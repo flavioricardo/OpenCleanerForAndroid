@@ -51,6 +51,7 @@
     <string name="group_files">Arquivos</string>
     <string name="nothing">Nada para limpar agora.</string>
     <string name="selection_items">Limpeza: %1$d de %2$d · Apps: %3$d de %4$d</string>
+    <string name="selection_items_clean">Limpeza: %1$d de %2$d marcados</string>
     <string name="selection_bytes">%1$s de %2$s</string>
 
     <string name="apps_title">Apps</string>

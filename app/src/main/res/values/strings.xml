@@ -53,6 +53,7 @@
     <string name="group_files">Files</string>
     <string name="nothing">Nothing to clean right now.</string>
     <string name="selection_items">Cleanup: %1$d of %2$d · Apps: %3$d of %4$d</string>
+    <string name="selection_items_clean">Cleanup: %1$d of %2$d selected</string>
     <string name="selection_bytes">%1$s of %2$s</string>
 
     <string name="apps_title">Apps</string>
