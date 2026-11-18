@@ -22,5 +22,5 @@
 
 <!-- Formato: - [ ] **Ação exata** → link direto | trava: … | [humano] se só o Flávio fecha -->
 - [ ] **Validar no S20 FE quanto dos 33,5 GB do WhatsApp é alcançável** (risco 3 da spec). Risco 2 explicado: o diálogo de cache do Android só limpa cache externo (docs do StorageManager); o interno ficou app por app, na aba Apps. → `docs/superpowers/specs/2026-11-15-opencleaner-android-design.md` | [humano]
-- [ ] **Keystore de release estável**: cada run do CI assina com uma chave de debug diferente, então atualizar exige desinstalar antes. Gerar keystore, guardar em secrets do repo e passar `OC_KEYSTORE*` no CI → https://github.com/flavioricardo/OpenCleanerForAndroid/settings/secrets/actions | [humano]
+- [ ] **Keystore de release estável**: o CI já assina com a chave dos secrets `OC_KEYSTORE_BASE64` e `OC_KEYSTORE_PASSWORD` (alias `opencleaner`). Falta gerar a chave e criar os dois secrets: comandos no README, seção Build. Depois: release 0.4.1 assinada (uma última desinstalação) e tirar o "pre-release" → https://github.com/flavioricardo/OpenCleanerForAndroid/settings/secrets/actions | [humano]
 - [ ] **Incluir o repo no rollout automático**: PR no `claude-config` acrescentando `flavioricardo/OpenCleanerForAndroid` em `rollout-projects.txt` e dar acesso ao token `ROLLOUT_TOKEN` → https://github.com/settings/tokens?type=beta | [humano] (token)

@@ -64,8 +64,23 @@ JDK 17, Android SDK 35 and Gradle 8.11.1:
 gradle testDebugUnitTest assembleRelease
 ```
 
-Release signing reads `OC_KEYSTORE`, `OC_KEYSTORE_PASSWORD`, `OC_KEY_ALIAS` and `OC_KEY_PASSWORD`
-from the environment. Without them, the release APK is signed with the debug key.
+Release signing reads `OC_KEYSTORE` (a PKCS12 file), `OC_KEYSTORE_PASSWORD`, `OC_KEY_ALIAS` and
+`OC_KEY_PASSWORD` from the environment. Without them, the release APK is signed with the debug key.
+
+In CI the key comes from two repository secrets: `OC_KEYSTORE_BASE64` (the `.p12` file in base64)
+and `OC_KEYSTORE_PASSWORD`; the alias is `opencleaner` and the key password is the same as the
+store password. To create them once (Git Bash, no JDK needed):
+
+```bash
+MSYS_NO_PATHCONV=1 openssl req -x509 -newkey rsa:4096 -sha256 -days 10950 -nodes -keyout key.pem -out cert.pem -subj "/CN=OpenCleaner for Android"
+openssl pkcs12 -export -inkey key.pem -in cert.pem -name opencleaner -out opencleaner-release.p12
+base64 -w0 opencleaner-release.p12 | gh secret set OC_KEYSTORE_BASE64 -R flavioricardo/OpenCleanerForAndroid
+gh secret set OC_KEYSTORE_PASSWORD -R flavioricardo/OpenCleanerForAndroid
+rm key.pem cert.pem
+```
+
+Keep `opencleaner-release.p12` and its password somewhere safe: without them, no future APK
+can update an installed one.
 
 ## License
 
